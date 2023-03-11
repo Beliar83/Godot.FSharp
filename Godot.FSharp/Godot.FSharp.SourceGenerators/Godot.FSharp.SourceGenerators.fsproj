@@ -25,6 +25,7 @@
     <ItemGroup>
         <PackageReference Include="FsAst" Version="0.13.0" />
         <PackageReference Include="Myriad.Core" Version="0.8.1" PrivateAssets="all" />
+        <PackageReference Include="Myriad.Sdk" Version="0.8.1" PrivateAssets="none" />
         <PackageReference Update="FSharp.Core" Version="6.0.3" />
     </ItemGroup>
 
