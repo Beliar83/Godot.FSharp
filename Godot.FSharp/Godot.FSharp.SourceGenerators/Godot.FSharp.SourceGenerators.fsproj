@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <WarnOn>3390;$(WarnOn)</WarnOn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Content Include="build\Godot.FSharp.Test.props">
+            <Pack>false</Pack>
+            <PackagePath>%(Identity)</PackagePath>
+            <Visible>true</Visible>
+        </Content>
+
+        <Content Include="build\Godot.FSharp.props">
+            <Pack>true</Pack>
+            <PackagePath>%(Identity)</PackagePath>
+            <Visible>true</Visible>
+        </Content>
+
+        <Compile Include="Myriad.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="FsAst" Version="0.13.0" />
+        <PackageReference Include="Myriad.Core" Version="0.8.1" PrivateAssets="all" />
+        <PackageReference Update="FSharp.Core" Version="6.0.3" />
+    </ItemGroup>
+
+    <Import Project="build/Godot.FSharp.props" />
+
+</Project>
