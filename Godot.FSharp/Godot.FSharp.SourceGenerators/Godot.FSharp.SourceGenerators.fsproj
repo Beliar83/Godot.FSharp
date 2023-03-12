@@ -4,6 +4,7 @@
         <TargetFramework>net6.0</TargetFramework>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <WarnOn>3390;$(WarnOn)</WarnOn>
+        <MyriadSdkVerboseOutput>true</MyriadSdkVerboseOutput>
     </PropertyGroup>
 
     <ItemGroup>
@@ -18,15 +19,15 @@
             <PackagePath>%(Identity)</PackagePath>
             <Visible>true</Visible>
         </Content>
-
+        <Compile Include="generator.fs"/>
         <Compile Include="Myriad.fs" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="FsAst" Version="0.13.0" />
-        <PackageReference Include="Myriad.Core" Version="0.8.1" PrivateAssets="all" />
-        <PackageReference Include="Myriad.Sdk" Version="0.8.1" PrivateAssets="none" />
-        <PackageReference Update="FSharp.Core" Version="6.0.3" />
+        <PackageReference Include="GodotSharp" Version="4.0.0"/>
+        <PackageReference Include="Myriad.Core" Version="0.8.2" PrivateAssets="all" />
+        <PackageReference Include="Myriad.Sdk" Version="0.8.2" PrivateAssets="none" />
+        <PackageReference Update="FSharp.Core" Version="6.0.6" />
     </ItemGroup>
 
     <Import Project="build/Godot.FSharp.props" />
