@@ -38,31 +38,32 @@ module Helper =
         |> List.exists (fun a -> a.Attributes |> List.exists (fun x -> typeNameMatches typeof<'a> x))
 
     let rec extractTypes (moduleDecls: SynModuleDecl list) (ns: LongIdent) =
-        [ for moduleDecl in moduleDecls do
-              match moduleDecl with
-              | SynModuleDecl.Types(types, _) -> yield (ns, types)
-              | SynModuleDecl.NestedModule(synComponentInfo,
-                                           isRec,
-                                           decls,
-                                           isContinuing,
-                                           range,
-                                           synModuleDeclNestedModuleTrivia) ->
-                  match synComponentInfo with
-                  | SynComponentInfo(attribs,
-                                     typeParams,
-                                     constraints,
-                                     longId,
-                                     xmlDoc,
-                                     preferPostfix,
-                                     accessibility,
-                                     range) ->
-                      let combined = longId |> List.append ns
-                      yield! (extractTypes decls combined)
-              | other -> () ]
+        [
+            for moduleDecl in moduleDecls do
+                match moduleDecl with
+                | SynModuleDecl.Types(types, _) -> yield (ns, types)
+                | SynModuleDecl.NestedModule(synComponentInfo,
+                                             isRec,
+                                             decls,
+                                             isContinuing,
+                                             range,
+                                             synModuleDeclNestedModuleTrivia) ->
+                    match synComponentInfo with
+                    | SynComponentInfo(attribs,
+                                       typeParams,
+                                       constraints,
+                                       longId,
+                                       xmlDoc,
+                                       preferPostfix,
+                                       accessibility,
+                                       range) ->
+                        let combined = longId |> List.append ns
+                        yield! (extractTypes decls combined)
+                | other -> ()
+        ]
 
-open Helper
 open Generator
-open Godot
+open GodotStubs
 
 [<MyriadGenerator("fsharp.godot.example")>]
 type Example() =
@@ -190,38 +191,68 @@ type Example() =
             //         toGenerate)
             try
                 let toGenerate: List<ToGenerateInfo> =
-                    [ { Extending = "Node"
-                        Name = "MyNode"
-                        methods =
-                          [ { MethodName = "_Ready"
-                              MethodParams = []
-                              MethodFlags = MethodFlags.Default }
-                            { MethodName = "_Process"
-                              MethodParams =
-                                [ { Name = "delta"
-                                    OfTypeName = "double"
-                                    OfType = Variant.Type.Float
-                                    PropertyHint = PropertyHint.None
-                                    UsageFlags = PropertyUsageFlags.Default
-                                    HintText = "" } ]
-                              MethodFlags = MethodFlags.Default } ]
+                    [
+                        {
 
-                        StateToGenerate =
-                            { Name = "BasicState"
-                              ExportedFields =
-                                [ { Name = "Hello"
-                                    OfTypeName = "int"
-                                    OfType = Variant.Type.Int
-                                    PropertyHint = PropertyHint.None
-                                    HintText = ""
-                                    UsageFlags = PropertyUsageFlags.None } ]
-                              InnerFields =
-                                [ { Name = "IAmInner"
-                                    OfTypeName = "string"
-                                    OfType = Variant.Type.String
-                                    PropertyHint = PropertyHint.None
-                                    HintText = ""
-                                    UsageFlags = PropertyUsageFlags.None } ] } } ]
+                            Extending = "Node"
+                            Name = "MyNode"
+                            methods =
+                                [
+                                    {
+                                        MethodName = "_Ready"
+                                        IsOverride = true
+                                        MethodParams = []
+                                        MethodFlags = MethodFlags.Default
+                                    }
+                                    {
+                                        MethodName = "_Process"
+                                        IsOverride = true
+                                        MethodParams =
+                                            [
+                                                {
+
+                                                    Name = "delta"
+                                                    OfTypeName = "double"
+                                                    OfType = Type.Float
+                                                    PropertyHint = PropertyHint.None
+                                                    UsageFlags = PropertyUsageFlags.Default
+                                                    HintText = ""
+                                                }
+                                            ]
+                                        MethodFlags = MethodFlags.Default
+                                    }
+                                ]
+
+                            StateToGenerate =
+                                {
+                                    Name = "BasicState"
+                                    ExportedFields =
+                                        [
+                                            {
+                                                Name = "Hello"
+                                                OfTypeName = "int"
+                                                OfType = Type.Int
+                                                PropertyHint = PropertyHint.None
+                                                HintText = ""
+                                                UsageFlags = PropertyUsageFlags.None
+                                            }
+                                        ]
+                                    InnerFields =
+                                        [
+                                            {
+                                                Name = "IAmInner"
+                                                OfTypeName = "string"
+                                                OfType = Type.String
+                                                PropertyHint = PropertyHint.None
+                                                HintText = ""
+                                                UsageFlags = PropertyUsageFlags.None
+                                            }
+                                        ]
+                                }
+                            InNamespace = "GeneratedNodes"
+                            ModuleNameToOpen = "TestFSharpGodot.Say"
+                        }
+                    ]
 
                 let generatedStr = toGenerate |> Seq.map generateClass |> String.concat "\n\n"
                 let logger = File.CreateText "./output.debug.myriad.txt"

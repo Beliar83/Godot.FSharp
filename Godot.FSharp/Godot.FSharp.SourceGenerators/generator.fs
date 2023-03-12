@@ -1,49 +1,56 @@
 namespace MyriadgodotMyriad
 
-open Godot
-open Godot.Bridge
-open Godot.NativeInterop
-
 module Generator =
     type MethodParam =
-        { Name: string
-          OfTypeName: string
-          OfType: Variant.Type
-          PropertyHint: PropertyHint
-          HintText: string
-          UsageFlags: PropertyUsageFlags }
+        {
+            Name: string
+            OfTypeName: string
+            OfType: GodotStubs.Type
+            PropertyHint: GodotStubs.PropertyHint
+            HintText: string
+            UsageFlags: GodotStubs.PropertyUsageFlags
+        }
 
     type MethodsToGenerate =
-        { MethodParams: List<MethodParam>
-          MethodName: string
-          MethodFlags: Godot.MethodFlags }
+        {
+
+            IsOverride: bool
+            MethodParams: List<MethodParam>
+            MethodName: string
+            MethodFlags: GodotStubs.MethodFlags
+        }
 
     type Field =
-        { Name: string
-          OfTypeName: string
-          OfType: Variant.Type
-          PropertyHint: PropertyHint
-          HintText: string
-          UsageFlags: PropertyUsageFlags }
+        {
+            Name: string
+            OfTypeName: string
+            OfType: GodotStubs.Type
+            PropertyHint: GodotStubs.PropertyHint
+            HintText: string
+            UsageFlags: GodotStubs.PropertyUsageFlags
+        }
 
     type StateToGenerate =
-        { Name: string
-          ExportedFields: List<Field>
-          InnerFields: List<Field>
-
+        {
+            Name: string
+            ExportedFields: List<Field>
+            InnerFields: List<Field>
         }
 
     type ToGenerateInfo =
-        { Extending: string
-          Name: string
-          StateToGenerate: StateToGenerate
-          methods: List<MethodsToGenerate> }
+        {
+            InNamespace: string
+            ModuleNameToOpen: string
+            Extending: string
+            Name: string
+            StateToGenerate: StateToGenerate
+            methods: List<MethodsToGenerate>
+        }
 
     let private concat = String.concat "\n"
     let private mapAndConcat func = Seq.map func >> concat
 
-    let private generateIfPart isFirst =
-        if isFirst then "        if" else "        else if"
+    let private generateIfPart isFirst = if isFirst then "if" else "else if"
 
     let private mapWithFirst a =
         Seq.mapi (fun k v -> v, (k = 0)) >> Seq.map a
@@ -55,12 +62,15 @@ module Generator =
         let generateParamsSend (a: seq<MethodParam>) =
             a |> Seq.map (fun x -> x.Name) |> String.concat " "
 
+        let generateAccess isOverride =
+            if isOverride then "override" else "member public"
+
         let generateMethod (method: MethodsToGenerate) =
             $"
-    publi member this.{method.MethodName} ({generateParamsIncomming method.MethodParams}) =
-        let currentState = this.GetState ()
-        let newState = {method.MethodName} this {method.MethodParams} {generateParamsSend method.MethodParams} currentState
-        this.SetState newState
+    {generateAccess method.IsOverride} this.{method.MethodName} ({generateParamsIncomming method.MethodParams}) =
+        let currentState = getState ()
+        let newState = {method.MethodName} this {generateParamsSend method.MethodParams} currentState
+        setState newState
     "
 
         methods |> mapAndConcat generateMethod
@@ -70,9 +80,11 @@ module Generator =
             let generateParamPart (param: MethodParam) =
                 $"
                         Bridge.PropertyInfo(
-                            (LanguagePrimitives.EnumOfValue<_,_> {param.OfType}),
+                            (LanguagePrimitives.EnumOfValue<_,_> {LanguagePrimitives.EnumToValue param.OfType}L),
                             \"{param.Name}\",
-                            (LanguagePrimitives.EnumOfValue<_,_>{param.PropertyHint}),
+                            (LanguagePrimitives.EnumOfValue<_,_>{LanguagePrimitives.EnumToValue param.PropertyHint}L),
+                            \"{param.HintText}\",
+                            (LanguagePrimitives.EnumOfValue<_,_>{LanguagePrimitives.EnumToValue param.UsageFlags}),
                             false
                         )
                 "
@@ -92,12 +104,13 @@ module Generator =
                     PropertyUsageFlags.Default,
                     false
                 ),
-                (LanguagePrimitives.EnumOfValue<_,_> {method.MethodFlags},
-                ResizeArray(
+                (LanguagePrimitives.EnumOfValue<_,_> {LanguagePrimitives.EnumToValue method.MethodFlags}),
+                ResizeArray (
                     [|
                         {generateParams method.MethodParams}
                     |]
-                )
+                ),
+                ResizeArray ()
 
             )
         )
@@ -114,9 +127,9 @@ module Generator =
 
         let generateInvokeGodotClassMethod (method: MethodsToGenerate, isFirst) =
             $"
-        {generateIfPart isFirst} (StringName.op_Equality ({method.MethodName},&method) && args.Count = {method.MethodParams.Length}) then
+        {generateIfPart isFirst} (StringName.op_Equality (\"{method.MethodName}\",&method) && args.Count = {method.MethodParams.Length}) then
             this.{method.MethodName}({generateParamsForCall method.MethodParams})
-
+            true
             "
 
         methods |> mapWithFirst generateInvokeGodotClassMethod |> concat
@@ -132,14 +145,15 @@ module Generator =
     let private generateSetFields (fields: List<Field>) : string =
 
         let generateSetField ((field: Field), (isFirst)) : string =
-            $"        {generateIfPart isFirst} StringName.op_Equality (\"{field.Name}\",value) then
+            $"    {generateIfPart isFirst} StringName.op_Equality (\"{field.Name}\",&name) then
             let castedValue = VariantUtils.ConvertTo<{field.OfTypeName}>(&value)
-            let currentState = this.GetState()
+            let currentState = getState()
             let newState = {{
                 currentState with
-                {field.Name} = castedValue
+                    {field.Name} = castedValue
             }}
-            this.SetState newState
+            setState newState
+            true
             "
 
         let fields = fields |> mapWithFirst generateSetField |> concat
@@ -152,8 +166,9 @@ module Generator =
 
     let private generateGetFields (fields: List<Field>) : string =
         let generateGetField (field: Field, isFirst: bool) =
-            $"        {generateIfPart isFirst} StringName.op_Equality (\"{field.Name}\")
-            let fromState = this.state.{field.Name}
+            $"    {generateIfPart isFirst} StringName.op_Equality (\"{field.Name}\", &name) then
+            let state = getState ()
+            let fromState = state.{field.Name}
             let casted = VariantUtils.CreateFrom<{field.OfTypeName}>(&fromState)
             value <- casted
             true
@@ -169,17 +184,14 @@ module Generator =
 
     let private generatePropertyList (fields: List<Field>) (isExported: bool) : string =
         let generatePropetyItem (field: Field) : string =
-            let z =
-                PropertyInfo(field.OfType, field.Name, field.PropertyHint, field.HintText, field.UsageFlags, isExported)
-
             $"
         properties.Add(
             Bridge.PropertyInfo(
-                (LanguagePrimitives.EnumOfValue<_, _> {field.OfType}L),
+                (LanguagePrimitives.EnumOfValue<_, _> {LanguagePrimitives.EnumToValue field.OfType}L),
                 \"{field.Name}\",
-                (LanguagePrimitives.EnumOfValue<_, _> {field.PropertyHint}L),
+                (LanguagePrimitives.EnumOfValue<_, _> {LanguagePrimitives.EnumToValue field.PropertyHint}L),
                 \"{field.HintText}\",
-                (LanguagePrimitives.EnumOfValue<_, _> {field.UsageFlags}L),
+                (LanguagePrimitives.EnumOfValue<_, _> {LanguagePrimitives.EnumToValue field.UsageFlags}L),
                 {isExported}
             )
         )
@@ -190,9 +202,9 @@ module Generator =
     let private generateGodotSaveObjectData (fields: List<Field>) =
         let generateGodotSingleSaveObjectData (field: Field) =
             $"
-            let {field.Name} = state.{field.Name}
-            info.AddProperty(\"{field.Name}\",Godot.Variant.From<{field.OfTypeName}>(&{field.Name}))
-            "
+        let {field.Name} = state.{field.Name}
+        info.AddProperty(\"{field.Name}\",Godot.Variant.From<{field.OfTypeName}>(&{field.Name}))
+        "
 
         fields |> mapAndConcat generateGodotSingleSaveObjectData
 
@@ -200,11 +212,11 @@ module Generator =
         let generateRestoreGodotObjectData (field: Field) =
             $"
         let mutable _value_{field.Name}: Variant = new Variant()
-        let mutable newState = this.GetState()
+        let mutable newState = getState ()
         if(info.TryGetProperty(\"{field.Name}\",&_value_{field.Name})) then
             newState <- {{
                 newState with
-                {field.Name} = (_value_TestSimpleExport.As<_>())
+                    {field.Name} = (_value_{field.Name}.As<_> ())
             }}
             "
 
@@ -220,13 +232,27 @@ module Generator =
         fields |> mapAndConcat generateSingleGodotPropertyDefaultValu
 
     let generateClass (toGenerate: ToGenerateInfo) : string =
-        $"type {toGenerate.Name}() =
-    extends {toGenerate.Extending}()
-    interface INodeWithState<{toGenerate.Name},{toGenerate.StateToGenerate.Name}> with
-        member _.SetState s =  state <- s
-        member _.GetState () = state
-        member this.GetNode () = this
+        $"
+namespace {toGenerate.InNamespace}
+open Godot
+open Godot.Bridge
+open Godot.NativeInterop
+open {toGenerate.ModuleNameToOpen}
+open MyriadgodotMyriad.Helper
+type {toGenerate.Name}() =
+    inherit {toGenerate.Extending}()
     let mutable state: {toGenerate.StateToGenerate.Name} = {toGenerate.StateToGenerate.Name}.Default ()
+    let setState s = state <- s
+    let getState () = state
+    interface INodeWithState<{toGenerate.Name},{toGenerate.StateToGenerate.Name}> with
+        member _.SetState s =  setState s
+        member _.GetState () = getState ()
+        member this.GetNode () = this
+    interface INodeWithState<{toGenerate.Extending},{toGenerate.StateToGenerate.Name}> with
+        member _.SetState s =  setState s
+        member _.GetState () = getState ()
+        member this.GetNode () = this
+    
     {generateMethods toGenerate.methods}
     static member GetGodotMethodList() = 
         let methods = ResizeArray()

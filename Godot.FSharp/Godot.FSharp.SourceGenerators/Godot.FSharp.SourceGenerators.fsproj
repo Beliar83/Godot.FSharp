@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net6.0</TargetFramework>
@@ -19,12 +19,12 @@
             <PackagePath>%(Identity)</PackagePath>
             <Visible>true</Visible>
         </Content>
+        <Compile Include="GodotStubs.fs"/>
         <Compile Include="generator.fs"/>
         <Compile Include="Myriad.fs" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="GodotSharp" Version="4.0.0"/>
         <PackageReference Include="Myriad.Core" Version="0.8.2" PrivateAssets="all" />
         <PackageReference Include="Myriad.Sdk" Version="0.8.2" PrivateAssets="none" />
         <PackageReference Update="FSharp.Core" Version="6.0.6" />
