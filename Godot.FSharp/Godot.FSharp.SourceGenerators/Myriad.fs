@@ -9,6 +9,7 @@ open FSharp.Compiler.Xml
 open FSharp.Compiler.SyntaxTrivia
 open Myriad.Core
 open Myriad.Core.Ast
+open MyriadgodotMyriad.GodotStubs
 
 
 module Helper =
@@ -234,7 +235,7 @@ type Example() =
                                                 OfType = Type.Int
                                                 PropertyHint = PropertyHint.None
                                                 HintText = ""
-                                                UsageFlags = PropertyUsageFlags.None
+                                                UsageFlags = PropertyUsageFlags.Default ||| PropertyUsageFlags.ScriptVariable
                                             }
                                         ]
                                     InnerFields =
@@ -245,7 +246,7 @@ type Example() =
                                                 OfType = Type.String
                                                 PropertyHint = PropertyHint.None
                                                 HintText = ""
-                                                UsageFlags = PropertyUsageFlags.None
+                                                UsageFlags = PropertyUsageFlags.ScriptVariable
                                             }
                                         ]
                                 }

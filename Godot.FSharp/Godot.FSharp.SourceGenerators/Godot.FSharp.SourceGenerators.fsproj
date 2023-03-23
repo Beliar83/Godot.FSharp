@@ -8,19 +8,19 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Content Include="build\Godot.FSharp.Test.props">
+        <Content Include="build\Godot.FSharp.SourceGenerators.Test.props">
             <Pack>false</Pack>
             <PackagePath>%(Identity)</PackagePath>
             <Visible>true</Visible>
         </Content>
 
-        <Content Include="build\Godot.FSharp.props">
+        <Content Include="build\Godot.FSharp.SourceGenerators.props">
             <Pack>true</Pack>
             <PackagePath>%(Identity)</PackagePath>
             <Visible>true</Visible>
         </Content>
-        <Compile Include="GodotStubs.fs"/>
-        <Compile Include="generator.fs"/>
+        <Compile Include="GodotStubs.fs" />
+        <Compile Include="generator.fs" />
         <Compile Include="Myriad.fs" />
     </ItemGroup>
 
@@ -30,6 +30,6 @@
         <PackageReference Update="FSharp.Core" Version="6.0.6" />
     </ItemGroup>
 
-    <Import Project="build/Godot.FSharp.props" />
+    <Import Project="build/Godot.FSharp.SourceGenerators.props" />
 
 </Project>

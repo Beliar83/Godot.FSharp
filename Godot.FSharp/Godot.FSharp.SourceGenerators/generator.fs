@@ -192,7 +192,7 @@ module Generator =
                 (LanguagePrimitives.EnumOfValue<_, _> {LanguagePrimitives.EnumToValue field.PropertyHint}L),
                 \"{field.HintText}\",
                 (LanguagePrimitives.EnumOfValue<_, _> {LanguagePrimitives.EnumToValue field.UsageFlags}L),
-                {isExported}
+                {isExported.ToString().ToLower()}
             )
         )
             "
@@ -258,17 +258,17 @@ type {toGenerate.Name}() =
         let methods = ResizeArray()
         {generateMethodList toGenerate.methods}
         methods
-    override this.InvokeGodotClassMethod(method, args, ret) =
+    member this._InvokeGodotClassMethod(method : inref<_>, args : NativeVariantPtrArgs, ret : outref<_>) =
         {generateInvokeGodotClassMethods toGenerate.methods}
         else
             base.InvokeGodotClassMethod(&method, args, &ret)
 
-    override this.HasGodotClassMethod(method) =
+    member this._HasGodotClassMethod(method : inref<_>) =
         {generateHasGodotClassMethod toGenerate.methods} || base.HasGodotClassMethod(&method)
 
-    override this.SetGodotClassPropertyValue(name, value) =
+    member this._SetGodotClassPropertyValue(name : inref<_>, value : inref<_>) =
     {generateSetFields toGenerate.StateToGenerate.ExportedFields}
-    override this.GetGodotClassPropertyValue(name,value) =
+    member this._GetGodotClassPropertyValue(name : inref<_>, value : outref<_>) =
     {generateGetFields toGenerate.StateToGenerate.ExportedFields}
     static member GetGodotPropertyList() =
         let properties = ResizeArray()
@@ -276,18 +276,18 @@ type {toGenerate.Name}() =
         {generatePropertyList toGenerate.StateToGenerate.InnerFields false}
         properties
 
-    override this.SaveGodotObjectData(info) = 
+    member this._SaveGodotObjectData(info : inref<_>) = 
         base.SaveGodotObjectData info
         {generateGodotSaveObjectData toGenerate.StateToGenerate.ExportedFields}
-    override this.RestoreGodotObjectData(info) = 
+    member this._RestoreGodotObjectData(info : inref<_>) = 
         base.RestoreGodotObjectData info
         {generateRestoreGodotObjectData toGenerate.StateToGenerate.ExportedFields}
 #if TOOLS
     static member GetGodotPropertyDefaultValues() =
-    let values =
-        new System.Collections.Generic.Dictionary<Godot.StringName, Godot.Variant>({toGenerate.StateToGenerate.ExportedFields.Length})
-    let defaultState = {toGenerate.StateToGenerate.Name}.Default ()
-    {generateGodotPropertyDefaultValues toGenerate.StateToGenerate.ExportedFields}
-    values
+        let values =
+            new System.Collections.Generic.Dictionary<Godot.StringName, Godot.Variant>({toGenerate.StateToGenerate.ExportedFields.Length})
+        let defaultState = {toGenerate.StateToGenerate.Name}.Default ()
+        {generateGodotPropertyDefaultValues toGenerate.StateToGenerate.ExportedFields}
+        values
 #endif
     "
