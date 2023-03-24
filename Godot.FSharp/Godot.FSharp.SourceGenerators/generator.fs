@@ -1,4 +1,4 @@
-namespace MyriadgodotMyriad
+namespace Godot.FSharp.SourceGenerators
 
 module Generator =
     type MethodParam =
@@ -238,7 +238,7 @@ open Godot
 open Godot.Bridge
 open Godot.NativeInterop
 open {toGenerate.ModuleNameToOpen}
-open MyriadgodotMyriad.Helper
+open Godot.FSharp.SourceGenerators.Helper
 type {toGenerate.Name}() =
     inherit {toGenerate.Extending}()
     let mutable state: {toGenerate.StateToGenerate.Name} = {toGenerate.StateToGenerate.Name}.Default ()

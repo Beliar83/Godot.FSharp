@@ -1,4 +1,4 @@
-namespace MyriadgodotMyriad
+namespace Godot.FSharp.SourceGenerators
 
 module GodotStubs =
     type PropertyHint =

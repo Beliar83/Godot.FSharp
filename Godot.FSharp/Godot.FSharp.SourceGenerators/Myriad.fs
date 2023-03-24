@@ -1,4 +1,4 @@
-﻿namespace MyriadgodotMyriad
+﻿namespace Godot.FSharp.SourceGenerators
 
 open System
 open System.IO
@@ -9,7 +9,7 @@ open FSharp.Compiler.Xml
 open FSharp.Compiler.SyntaxTrivia
 open Myriad.Core
 open Myriad.Core.Ast
-open MyriadgodotMyriad.GodotStubs
+open Godot.FSharp.SourceGenerators.GodotStubs
 
 
 module Helper =
