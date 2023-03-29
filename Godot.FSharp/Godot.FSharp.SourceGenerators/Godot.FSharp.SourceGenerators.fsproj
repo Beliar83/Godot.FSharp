@@ -1,35 +1,31 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <WarnOn>3390;$(WarnOn)</WarnOn>
-        <MyriadSdkVerboseOutput>true</MyriadSdkVerboseOutput>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <Content Include="build\Godot.FSharp.SourceGenerators.Test.props">
-            <Pack>false</Pack>
-            <PackagePath>%(Identity)</PackagePath>
-            <Visible>true</Visible>
-        </Content>
-
-        <Content Include="build\Godot.FSharp.SourceGenerators.props">
-            <Pack>true</Pack>
-            <PackagePath>%(Identity)</PackagePath>
-            <Visible>true</Visible>
-        </Content>
-        <Compile Include="GodotStubs.fs" />
-        <Compile Include="generator.fs" />
-        <Compile Include="Myriad.fs" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="Myriad.Core" Version="0.8.2" PrivateAssets="all" />
-        <PackageReference Include="Myriad.Sdk" Version="0.8.2" PrivateAssets="none" />
-        <PackageReference Update="FSharp.Core" Version="6.0.6" />
-    </ItemGroup>
-
-    <Import Project="build/Godot.FSharp.SourceGenerators.props" />
-
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarnOn>3390;$(WarnOn)</WarnOn>
+    <MyriadSdkVerboseOutput>true</MyriadSdkVerboseOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="build\Godot.FSharp.SourceGenerators.Test.props">
+      <Pack>false</Pack>
+      <PackagePath>%(Identity)</PackagePath>
+      <Visible>true</Visible>
+    </Content>
+    <Content Include="build\Godot.FSharp.SourceGenerators.props">
+      <Pack>true</Pack>
+      <PackagePath>%(Identity)</PackagePath>
+      <Visible>true</Visible>
+    </Content>
+    <Compile Include="GodotStubs.fs" />
+    <Compile Include="generator.fs" />
+    <Compile Include="helpers.fs" />
+    <Compile Include="mapper.fs" />
+    <Compile Include="Myriad.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Myriad.Core" Version="0.8.2" PrivateAssets="all" />
+    <PackageReference Include="Myriad.Sdk" Version="0.8.2" PrivateAssets="none" />
+    <PackageReference Update="FSharp.Core" Version="6.0.6" />
+  </ItemGroup>
+  <Import Project="build/Godot.FSharp.SourceGenerators.props" />
 </Project>
