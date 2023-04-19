@@ -4,6 +4,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <WarnOn>3390;$(WarnOn)</WarnOn>
     <MyriadSdkVerboseOutput>true</MyriadSdkVerboseOutput>
+    <Version>0.0.1</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="build\Godot.FSharp.SourceGenerators.Test.props">
@@ -34,5 +37,18 @@
     <PackageReference Include="Myriad.Sdk" Version="0.8.2" PrivateAssets="none" />
     <PackageReference Update="FSharp.Core" Version="6.0.7" />
   </ItemGroup>
-  <Import Project="build/Godot.FSharp.SourceGenerators.props" />
+
+  <Target Name="PackPaketDependencies" BeforeTargets="GenerateNuspec">
+    <!--
+    The include needs to happen after output has been copied to build output folder
+    but before NuGet generates a nuspec. See https://github.com/NuGet/Home/issues/4704.
+    -->
+    <ItemGroup>
+      <_PackageFiles Include="bin\$(Configuration)\*\FSharp.Compiler.Service.dll;bin\$(Configuration)\*\Ionide.ProjInfo.FCS.dll;bin\$(Configuration)\*\Ionide.ProjInfo.dll;bin\$(Configuration)\*\SemanticVersioning.dll">
+        <PackagePath>lib\%(RecursiveDir)</PackagePath>
+        <Visible>false</Visible>
+        <BuildAction>Content</BuildAction>
+      </_PackageFiles>
+    </ItemGroup>
+  </Target>
 </Project>
