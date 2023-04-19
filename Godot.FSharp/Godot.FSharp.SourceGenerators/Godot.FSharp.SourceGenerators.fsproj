@@ -17,12 +17,15 @@
       <Visible>true</Visible>
     </Content>
     <Compile Include="GodotStubs.fs" />
-    <Compile Include="generator.fs" />
+    <Compile Include="TypeNameToGodotType.fs" />
     <Compile Include="helpers.fs" />
+    <Compile Include="generator.fs" />
     <Compile Include="mapper.fs" />
     <Compile Include="Myriad.fs" />
     <Compile Include="IGodotGenerator.fs" />
     <Compile Include="GodotGenerator.fs" />
+    <Compile Include="Variant.fs" />
+    <Compile Include="ResourceGenerator.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Compiler.Service" Version="41.0.7" />
