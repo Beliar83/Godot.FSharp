@@ -25,10 +25,10 @@
     <Compile Include="generator.fs" />
     <Compile Include="mapper.fs" />
     <Compile Include="Myriad.fs" />
-    <Compile Include="IGodotGenerator.fs" />
-    <Compile Include="GodotGenerator.fs" />
     <Compile Include="Variant.fs" />
+    <Compile Include="IGodotGenerator.fs" />
     <Compile Include="ResourceGenerator.fs" />
+    <Compile Include="GodotGenerator.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Compiler.Service" Version="41.0.7" />
