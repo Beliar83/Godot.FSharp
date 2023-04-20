@@ -7,7 +7,7 @@ open Myriad.Core
 type GodotGenerator() =
     interface IMyriadGenerator with
         member this.Generate(context) =
-            let generators: array<IGodotGenerator> = [||]
+            let generators: array<IGodotGenerator> = [|ResourceGenerator()|]
 
             let generators =
                 generators

@@ -3,18 +3,14 @@
 open System
 open System.Text
 open FSharp.Compiler.Symbols
-open FSharp.Compiler.CodeAnalysis
-open FSharp.Compiler.Text
 open Godot.FSharp.SourceGenerators.GodotStubs
 open Godot.FSharp.SourceGenerators.Variant
-open Ionide.ProjInfo
 open Myriad.Core
 open System.IO
 open Fantomas.Core
 
-[<MyriadGenerator("ResourceGenerator")>]
-type ResourceGenerator() =
-
+type ResourceGenerator() =  
+        
     let listDelimiter = ", "
 
     let handleUnion (builder: StringBuilder) (union: FSharpEntity) =
@@ -23,8 +19,14 @@ type ResourceGenerator() =
 
         let scope =
             match union.DeclaringEntity with
-            | Some entity -> entity.FullName
-            | None -> "global"
+            | Some entity ->
+                match entity.Namespace with
+                | Some value -> $"{value}.{entity.DisplayName}"
+                | None -> entity.FullName
+            | None ->
+                match union.Namespace with
+                | Some value -> value
+                | None -> "global"
 
         let caseHint =
             let cases =
@@ -204,12 +206,55 @@ type ResourceGenerator() =
             .AppendLine()
         |> ignore
 
-    let rec writeResourcesOfScope (builder: StringBuilder) (namespaceOrModule: string) (resources: FSharpEntity list) =
+    let writeCSharpClass (outputNamespace: string) (outputFolder : string) (record : FSharpEntity) =       
+            
+        let outputNamespace =
+            match record.DeclaringEntity with
+            | None -> outputNamespace
+            | Some value -> $"{outputNamespace}.{value.FullName}"        
+        
+        let recordName = record.DisplayNameCore
+        Directory.CreateDirectory outputFolder |> ignore
+        let writer = File.CreateText $"{outputFolder}/{recordName}.cs"
+        writer.Write $"""using Godot;
+using Godot.Collections;
+
+namespace {outputNamespace};
+
+[Tool]
+public partial class {recordName} : Resources.{record.FullName}
+{{
+	/// <inheritdoc />
+	public override Array<Dictionary> _GetPropertyList()
+	{{
+		return base._GetPropertyList();
+	}}
+	
+	/// <inheritdoc />
+	public override Variant _Get(StringName property)
+	{{
+		return base._Get(property);
+	}}
+	
+	/// <inheritdoc />
+	public override bool _Set(StringName property, Variant value)
+	{{
+		return base._Set(property, value);
+	}}
+}}
+"""
+        writer.Flush()
+        writer.Close()
+    
+    let rec writeResourcesOfScope (builder: StringBuilder) (writeCSharpClass: FSharpEntity -> unit) (namespaceOrModule: string) (resources: FSharpEntity list) =       
+        
         let resourcesStringBuilder = StringBuilder()
 
         for resource in resources do
+                
             if resource.IsFSharpUnion then
-                handleUnion resourcesStringBuilder resource
+                handleUnion resourcesStringBuilder resource            
+                writeCSharpClass resource
 
         if resourcesStringBuilder.Length > 0 then
             builder
@@ -235,73 +280,64 @@ type ResourceGenerator() =
                     [ x ]
                 else
                     [ x ])
-
-    interface IMyriadGenerator with
+    let extractResources (contents : FSharpImplementationFileContents) =
+        extractRecordsAndUnions contents.Declarations
+        |> List.filter
+            (fun x ->
+                x.Attributes
+                |> Seq.exists (fun x -> x.IsAttribute<Helper.ResourceAttribute>()))    
+    
+    interface IGodotGenerator with
         member _.Generate(context: GeneratorContext) =
-            let checker =
-                FSharpChecker.Create(keepAssemblyContents = true)
-
-            let projectContext =
-                match context.ProjectContext with
-                | None -> "No project context" |> Exception |> raise
-                | Some projectContext -> projectContext
+            
+            let contents = Helper.getImplementationFileContentsFromGeneratorContext context 
 
             let sourceBuilder = StringBuilder()
+            let writeResourcesOfScope = writeResourcesOfScope sourceBuilder
+            
+            let resources = extractResources contents
+    
+            if resources.Length = 0 then
+                Output.Ast []
+            else            
+                let resourcesByNamespaceOrModule =
+                    resources
+                    |> List.groupBy (fun x ->
+                            match x.DeclaringEntity with
+                            | None -> "global"
+                            | Some declaringEntity ->
+                                match declaringEntity.Namespace with
+                                | Some entityNamespace -> $"{entityNamespace}.{declaringEntity.DisplayName}"
+                                | None -> declaringEntity.FullName
+                        )
+                
+                let config = context.ConfigGetter "godot"
 
-            let projectDirectory =
-                DirectoryInfo(Path.GetDirectoryName projectContext.projectPath)
+                let outputFolder =
+                    config
+                    |> Seq.tryPick (fun (n,v) -> if n = "csOutputFolder" then Some (v :?> string) else None  )
+                    |> Option.defaultValue "./"
+                
+                let outputFolder = $"{Path.GetDirectoryName context.InputFilename}/{outputFolder}"
+                    
+                let outputNamespace =
+                    config
+                    |> Seq.tryPick (fun (n,v) -> if n = "namespace" then Some (v :?> string) else None  )
+                    |> Option.defaultValue "UnknownNamespace"
 
-            let toolsPath = Init.init projectDirectory None
+                
+                let writeResourcesOfScope = writeResourcesOfScope (writeCSharpClass outputNamespace outputFolder)
+                
+                for namespaceOrModule, resources in resourcesByNamespaceOrModule do
+                    writeResourcesOfScope namespaceOrModule resources
+                
+                Output.Source
+                <| sourceBuilder.ToString().Replace("\t", "    ")
 
-            let defaultLoader: IWorkspaceLoader = WorkspaceLoader.Create(toolsPath, [])
+        member this.GetNumberOfGeneratedTypes(context) =
+            let contents = Helper.getImplementationFileContentsFromGeneratorContext context
+        
+            (extractResources contents).Length
+            
 
-            let options =
-                defaultLoader.LoadProjects [ projectContext.projectPath ]
-                |> FCS.mapManyOptions
-                |> Seq.head
-
-            let file =
-                context.InputFilename
-                |> File.ReadAllText
-                |> SourceText.ofString
-
-
-            let _, answer =
-                checker.ParseAndCheckFileInProject(context.InputFilename, 1, file, options)
-                |> Async.RunSynchronously
-
-
-            let answer =
-                match answer with
-                | FSharpCheckFileAnswer.Aborted -> "Could not parse file" |> Exception |> raise
-                | FSharpCheckFileAnswer.Succeeded x -> x
-
-            let contents =
-                match answer.ImplementationFile with
-                | None -> "Could not parse file" |> Exception |> raise
-                | Some fileContents -> fileContents
-
-            let resources =
-                extractRecordsAndUnions contents.Declarations
-                |> List.filter
-                    (fun x ->
-                        x.Attributes
-                        |> Seq.exists (fun x -> x.IsAttribute<Helper.ResourceAttribute>()))
-
-            let resourcesByNamespaceOrModule =
-                resources
-                |> List.groupBy
-                    (fun x ->
-                        match x.DeclaringEntity with
-                        | None -> "global"
-                        | Some value -> value.DisplayName)
-
-
-            for namespaceOrModule, resources in resourcesByNamespaceOrModule do
-                writeResourcesOfScope sourceBuilder namespaceOrModule resources
-
-
-            Output.Source
-            <| sourceBuilder.ToString().Replace("\t", "    ")
-
-        member _.ValidInputExtensions = seq { ".fs" }
+        
