@@ -1,10 +1,13 @@
 namespace Godot.FSharp.SourceGenerators
 
 open System
+open System.IO
+open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Syntax
 open Fantomas.Core
-open Myriad.Core.Ast
-
+open Ionide.ProjInfo
+open Myriad.Core
+open FSharp.Compiler.Text
 
 module Helper =
     type NodeScriptAttribute() =
@@ -19,6 +22,10 @@ module Helper =
     type ExportAttribute() =
         inherit System.Attribute()
 
+    [<AttributeUsage(AttributeTargets.Class)>]
+    type ResourceAttribute() =
+        inherit System.Attribute()
+    
     type NodeOrState =
         | Node of SynComponentInfo
         | State of SynComponentInfo
@@ -28,9 +35,9 @@ module Helper =
         abstract member SetState: 'State -> unit
         abstract member GetNode: unit -> 'Node
 
-    let hasAttribute<'a> (a: SynAttributes) =
-        a
-        |> List.exists (fun a -> a.Attributes |> List.exists (fun x -> typeNameMatches typeof<'a> x))
+    // let hasAttribute<'a> (a: SynAttributes) =
+    //     a
+    //     |> List.exists (fun a -> a.Attributes |> List.exists (fun x -> typeNameMatches typeof<'a> x))
 
     let rec extractTypes (moduleDecls: SynModuleDecl list) (ns: LongIdent) =
         [
@@ -65,28 +72,28 @@ module Helper =
                 | _ -> ()
         ]
 
-    let extractNodeType (typ: SynTypeDefn) =
-        let SynTypeDefn(typeInfo, typeRepr, members, implicitConstructor, range, trivia) as ty =
-            typ
+    // let extractNodeType (typ: SynTypeDefn) =
+    //     let SynTypeDefn(typeInfo, typeRepr, members, implicitConstructor, range, trivia) as ty =
+    //         typ
+    //
+    //     if hasAttribute<NodeAttribute> typeInfo.attributes then
+    //         match typeRepr with
+    //         | SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.TypeAbbrev(detail, rhsType, range), _) -> Some rhsType
+    //         | _ -> None
+    //     else
+    //         None
 
-        if hasAttribute<NodeAttribute> typeInfo.attributes then
-            match typeRepr with
-            | SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.TypeAbbrev(detail, rhsType, range), _) -> Some rhsType
-            | _ -> None
-        else
-            None
-
-    let extractStateType (typ: SynTypeDefn) =
-        let SynTypeDefn(typeInfo, typeRepr, members, implicitConstructor, range, trivia) as ty =
-            typ
-
-        if hasAttribute<StateAttribute> typeInfo.attributes then
-            match typeRepr with
-            | SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Record(_, recordFields, _), _) ->
-                Some(typeInfo, recordFields)
-            | _ -> None
-        else
-            None
+    // let extractStateType (typ: SynTypeDefn) =
+    //     let SynTypeDefn(typeInfo, typeRepr, members, implicitConstructor, range, trivia) as ty =
+    //         typ
+    //
+    //     if hasAttribute<StateAttribute> typeInfo.attributes then
+    //         match typeRepr with
+    //         | SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Record(_, recordFields, _), _) ->
+    //             Some(typeInfo, recordFields)
+    //         | _ -> None
+    //     else
+    //         None
 
     let extractFunctions (moduleDecls: SynModuleDecl list) =
         [
@@ -118,15 +125,58 @@ module Helper =
                 | _ -> ()
         ]
 
-    let extractPart moduleDecls =
-        extractTypesNonRecusrive moduleDecls
-        |> List.choose (fun x ->
-            let state = extractStateType x
-            let node = extractNodeType x
+    // let extractPart moduleDecls =
+    //     extractTypesNonRecusrive moduleDecls
+    //     |> List.choose (fun x ->
+    //         let state = extractStateType x
+    //         let node = extractNodeType x
+    //
+    //         match (state, node) with
+    //         | (Some x, Some y) ->
+    //
+    //             Some(x, y)
+    //         | (None, _) -> "Missing state in node module" |> Exception |> raise
+    //         | (_, None) -> "Missing node in node module" |> Exception |> raise)
+    
+    let getFileResultsFromGeneratorContext (context : GeneratorContext) =
+        let checker =
+            FSharpChecker.Create(keepAssemblyContents = true)
 
-            match (state, node) with
-            | (Some x, Some y) ->
+        let projectContext =
+            match context.ProjectContext with
+            | None -> "No project context" |> Exception |> raise
+            | Some projectContext -> projectContext
 
-                Some(x, y)
-            | (None, _) -> "Missing state in node module" |> Exception |> raise
-            | (_, None) -> "Missing node in node module" |> Exception |> raise)
+        let projectDirectory =
+            DirectoryInfo(Path.GetDirectoryName projectContext.projectPath)
+
+        let toolsPath = Init.init projectDirectory None
+
+        let defaultLoader: IWorkspaceLoader = WorkspaceLoader.Create(toolsPath, [])
+
+        let projectOptions =
+            defaultLoader.LoadProjects [ projectContext.projectPath ]
+            |> FCS.mapManyOptions
+            |> Seq.head
+
+        let file =
+            context.InputFilename
+            |> File.ReadAllText
+            |> SourceText.ofString            
+
+        let _, answer =
+            checker.ParseAndCheckFileInProject(context.InputFilename, 1, file, projectOptions)
+            |> Async.RunSynchronously
+        
+        match answer with
+        | FSharpCheckFileAnswer.Aborted -> "Could not parse file" |> Exception |> raise
+        | FSharpCheckFileAnswer.Succeeded x -> x
+    
+    let getImplementationFileContentsFromFileResults (fileResults : FSharpCheckFileResults) =
+        match fileResults.ImplementationFile with
+        | None -> "Could not parse file" |> Exception |> raise
+        | Some fileContents -> fileContents
+        
+    let getImplementationFileContentsFromGeneratorContext (context : GeneratorContext) =
+        getImplementationFileContentsFromFileResults <| getFileResultsFromGeneratorContext context
+                
