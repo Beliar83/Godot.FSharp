@@ -9,24 +9,108 @@ open Myriad.Core
 open System.IO
 open Fantomas.Core
 
-type ResourceGenerator() =  
-        
+type ResourceGenerator() =
+
     let listDelimiter = ", "
+
+
+    let getScope (entity: FSharpEntity) =
+        match entity.DeclaringEntity with
+        | Some declaringEntity ->
+            match declaringEntity.Namespace with
+            | Some value -> $"{value}.{declaringEntity.DisplayName}"
+            | None -> declaringEntity.FullName
+        | None ->
+            match entity.Namespace with
+            | Some value -> value
+            | None -> "global"
+
+    let handleRecord (builder: StringBuilder) (record: FSharpEntity) =
+        let hasDefaultMember =
+            record.MembersFunctionsAndValues
+            |> Seq.exists
+                (fun x ->
+                    x.IsMember
+                    && not <| x.IsInstanceMember
+                    && x.ReturnParameter.Type.TypeDefinition = record
+                    && x.DisplayName = "Default")
+
+        if not <| hasDefaultMember then
+            "Resource records mus have a static 'Default' member which should return an instance of the record"
+            |> Exception
+            |> raise
+
+        let name = record.DisplayName
+        let scope = getScope record
+
+        let propertyDefinitionBuilder = StringBuilder()
+        let getBuilder = StringBuilder()
+        let setBuilder = StringBuilder()
+
+        let publicFields =
+            record.FSharpFields
+            |> Seq.filter (fun x -> x.Accessibility.IsPublic)
+            |> Seq.filter (fun x -> x.DisplayName <> "Default")
+
+        for field in publicFields do
+            let godotType =
+                match getTypeNameFromIdent.convertFSharpTypeToVariantType field.FieldType with
+                | None -> Type.Nil
+                | Some value ->
+                    match value with
+                    | None -> Type.Nil
+                    | Some value -> value
+
+            let fieldName = field.DisplayName
+
+            propertyDefinitionBuilder
+                .AppendLine("\t\tlet propertyDefinition = new Dictionary()")
+                .AppendLine($"\t\tpropertyDefinition.Add(\"name\", \"{fieldName}\")")
+                .AppendLine($"\t\tpropertyDefinition.Add(\"type\", \"{int godotType}\")")
+                .AppendLine($"\t\tpropertyDefinition.Add(\"usage\", {Helper.defaultPropertyUsage})")
+                .AppendLine("\t\tpropertyList.Add propertyDefinition")
+                .AppendLine()
+            |> ignore
+
+            getBuilder.AppendLine($"\t\t| \"{fieldName}\" -> Variant.CreateFrom internalValue.{fieldName}")
+            |> ignore
+
+            setBuilder
+                .AppendLine($"\t\t| \"{fieldName}\" ->")
+                .AppendLine($"\t\t\tinternalValue <- {{ internalValue with {fieldName} = value.As() }}")
+                .AppendLine("\t\t\ttrue")
+            |> ignore
+
+
+        builder
+            .AppendLine($"type {name}()=")
+            .AppendLine("\tinherit Resource()")
+            .AppendLine()
+            .AppendLine($"\tlet mutable internalValue : {scope}.{name} = {scope}.{name}.Default")
+            .AppendLine()
+            .AppendLine("\toverride this._GetPropertyList() =")
+            .AppendLine("\t\tlet propertyList = Array<Dictionary>()")
+            .AppendLine()
+            .Append(propertyDefinitionBuilder.ToString())
+            .AppendLine()
+            .AppendLine("\t\tpropertyList")
+            .AppendLine()
+            .AppendLine("\toverride this._Get(property) =")
+            .AppendLine("\t\tmatch property.ToString() with")
+            .Append(getBuilder.ToString())
+            .AppendLine("\t\t| _ -> base._Get(property)")
+            .AppendLine("\toverride this._Set(property, value) =")
+            .AppendLine("\t\tmatch property.ToString() with")
+            .Append(setBuilder.ToString())
+            .AppendLine("\t\t| _ -> false")
+            .AppendLine()
+        |> ignore
 
     let handleUnion (builder: StringBuilder) (union: FSharpEntity) =
         let name = union.DisplayName
         let cases = union.UnionCases
 
-        let scope =
-            match union.DeclaringEntity with
-            | Some entity ->
-                match entity.Namespace with
-                | Some value -> $"{value}.{entity.DisplayName}"
-                | None -> entity.FullName
-            | None ->
-                match union.Namespace with
-                | Some value -> value
-                | None -> "global"
+        let scope = getScope union
 
         let caseHint =
             let cases =
@@ -90,9 +174,7 @@ type ResourceGenerator() =
                     .AppendLine("\t\t\t\tlet propertyDefinition = new Dictionary()")
                     .AppendLine($"\t\t\t\tpropertyDefinition.Add(\"name\", \"{fieldName}\")")
                     .AppendLine($"\t\t\t\tpropertyDefinition.Add(\"type\", \"{int godotType}\")")
-                    .AppendLine(
-                        "\t\t\t\tpropertyDefinition.Add(\"usage\", int(PropertyUsageFlags.Default ||| PropertyUsageFlags.Editor))"
-                    )
+                    .AppendLine($"\t\t\t\tpropertyDefinition.Add(\"usage\", {Helper.defaultPropertyUsage})")
                     .AppendLine("\t\t\t\tpropertyList.Add propertyDefinition")
                     .AppendLine()
                 |> ignore
@@ -163,9 +245,7 @@ type ResourceGenerator() =
             .AppendLine("\t\tlet propertyDefinition = new Dictionary()")
             .AppendLine("\t\tpropertyDefinition.Add(\"name\", \"Type\")")
             .AppendLine("\t\tpropertyDefinition.Add(\"type\", int Variant.Type.Int)")
-            .AppendLine(
-                "\t\tpropertyDefinition.Add(\"usage\", int(PropertyUsageFlags.Default ||| PropertyUsageFlags.Editor))"
-            )
+            .AppendLine($"\t\tpropertyDefinition.Add(\"usage\", {Helper.defaultPropertyUsage})")
             .AppendLine("\t\tpropertyDefinition.Add(\"hint\", int PropertyHint.Enum )")
             .AppendLine($"\t\tpropertyDefinition.Add(\"hint_string\", \"{caseHint}\")")
             .AppendLine("\t\tpropertyList.Add propertyDefinition")
@@ -206,17 +286,21 @@ type ResourceGenerator() =
             .AppendLine()
         |> ignore
 
-    let writeCSharpClass (outputNamespace: string) (outputFolder : string) (record : FSharpEntity) =       
-            
+    let writeCSharpClass (outputNamespace: string) (outputFolder: string) (record: FSharpEntity) =
+
         let outputNamespace =
             match record.DeclaringEntity with
             | None -> outputNamespace
-            | Some value -> $"{outputNamespace}.{value.FullName}"        
-        
+            | Some value -> $"{outputNamespace}.{value.FullName}"
+
         let recordName = record.DisplayNameCore
         Directory.CreateDirectory outputFolder |> ignore
-        let writer = File.CreateText $"{outputFolder}/{recordName}.cs"
-        writer.Write $"""using Godot;
+
+        let writer =
+            File.CreateText $"{outputFolder}/{recordName}.cs"
+
+        writer.Write
+            $"""using Godot;
 using Godot.Collections;
 
 namespace {outputNamespace};
@@ -229,13 +313,13 @@ public partial class {recordName} : Resources.{record.FullName}
 	{{
 		return base._GetPropertyList();
 	}}
-	
+
 	/// <inheritdoc />
 	public override Variant _Get(StringName property)
 	{{
 		return base._Get(property);
 	}}
-	
+
 	/// <inheritdoc />
 	public override bool _Set(StringName property, Variant value)
 	{{
@@ -243,17 +327,27 @@ public partial class {recordName} : Resources.{record.FullName}
 	}}
 }}
 """
+
         writer.Flush()
         writer.Close()
-    
-    let rec writeResourcesOfScope (builder: StringBuilder) (writeCSharpClass: FSharpEntity -> unit) (namespaceOrModule: string) (resources: FSharpEntity list) =       
-        
+
+    let rec writeResourcesOfScope
+        (builder: StringBuilder)
+        (writeCSharpClass: FSharpEntity -> unit)
+        (namespaceOrModule: string)
+        (resources: FSharpEntity list)
+        =
+
         let resourcesStringBuilder = StringBuilder()
 
         for resource in resources do
-                
+
             if resource.IsFSharpUnion then
-                handleUnion resourcesStringBuilder resource            
+                handleUnion resourcesStringBuilder resource
+                writeCSharpClass resource
+
+            if resource.IsFSharpRecord then
+                handleRecord resourcesStringBuilder resource
                 writeCSharpClass resource
 
         if resourcesStringBuilder.Length > 0 then
@@ -280,64 +374,75 @@ public partial class {recordName} : Resources.{record.FullName}
                     [ x ]
                 else
                     [ x ])
-    let extractResources (contents : FSharpImplementationFileContents) =
+
+    let extractResources (contents: FSharpImplementationFileContents) =
         extractRecordsAndUnions contents.Declarations
         |> List.filter
             (fun x ->
                 x.Attributes
-                |> Seq.exists (fun x -> x.IsAttribute<Helper.ResourceAttribute>()))    
-    
+                |> Seq.exists (fun x -> x.IsAttribute<Helper.ResourceAttribute>()))
+
     interface IGodotGenerator with
         member _.Generate(context: GeneratorContext) =
-            
-            let contents = Helper.getImplementationFileContentsFromGeneratorContext context 
+
+            let contents =
+                Helper.getImplementationFileContentsFromGeneratorContext context
 
             let sourceBuilder = StringBuilder()
             let writeResourcesOfScope = writeResourcesOfScope sourceBuilder
-            
+
             let resources = extractResources contents
-    
+
             if resources.Length = 0 then
                 Output.Ast []
-            else            
+            else
                 let resourcesByNamespaceOrModule =
                     resources
-                    |> List.groupBy (fun x ->
+                    |> List.groupBy
+                        (fun x ->
                             match x.DeclaringEntity with
                             | None -> "global"
                             | Some declaringEntity ->
                                 match declaringEntity.Namespace with
                                 | Some entityNamespace -> $"{entityNamespace}.{declaringEntity.DisplayName}"
-                                | None -> declaringEntity.FullName
-                        )
-                
+                                | None -> declaringEntity.FullName)
+
                 let config = context.ConfigGetter "godot"
 
                 let outputFolder =
                     config
-                    |> Seq.tryPick (fun (n,v) -> if n = "csOutputFolder" then Some (v :?> string) else None  )
+                    |> Seq.tryPick
+                        (fun (n, v) ->
+                            if n = "csOutputFolder" then
+                                Some(v :?> string)
+                            else
+                                None)
                     |> Option.defaultValue "./"
-                
-                let outputFolder = $"{Path.GetDirectoryName context.InputFilename}/{outputFolder}"
-                    
+
+                let outputFolder =
+                    $"{Path.GetDirectoryName context.InputFilename}/{outputFolder}"
+
                 let outputNamespace =
                     config
-                    |> Seq.tryPick (fun (n,v) -> if n = "namespace" then Some (v :?> string) else None  )
+                    |> Seq.tryPick
+                        (fun (n, v) ->
+                            if n = "namespace" then
+                                Some(v :?> string)
+                            else
+                                None)
                     |> Option.defaultValue "UnknownNamespace"
 
-                
-                let writeResourcesOfScope = writeResourcesOfScope (writeCSharpClass outputNamespace outputFolder)
-                
+                let writeResourcesOfScope =
+                    writeResourcesOfScope (writeCSharpClass outputNamespace outputFolder)
+
                 for namespaceOrModule, resources in resourcesByNamespaceOrModule do
                     writeResourcesOfScope namespaceOrModule resources
-                
+
                 Output.Source
                 <| sourceBuilder.ToString().Replace("\t", "    ")
 
         member this.GetNumberOfGeneratedTypes(context) =
-            let contents = Helper.getImplementationFileContentsFromGeneratorContext context
-        
-            (extractResources contents).Length
-            
+            let contents =
+                Helper.getImplementationFileContentsFromGeneratorContext context
 
-        
+            (extractResources contents).Length
