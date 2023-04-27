@@ -35,6 +35,8 @@ module Helper =
         abstract member SetState: 'State -> unit
         abstract member GetNode: unit -> 'Node
 
+    let defaultPropertyUsage = "int(PropertyUsageFlags.Default ||| PropertyUsageFlags.Editor)"
+    
     // let hasAttribute<'a> (a: SynAttributes) =
     //     a
     //     |> List.exists (fun a -> a.Attributes |> List.exists (fun x -> typeNameMatches typeof<'a> x))
