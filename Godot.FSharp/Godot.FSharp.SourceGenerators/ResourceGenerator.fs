@@ -373,7 +373,7 @@ public partial class {recordName} : Resources.{record.FullName}
                 elif x.IsFSharpRecord || x.IsFSharpUnion then
                     [ x ]
                 else
-                    [ x ])
+                    [])
 
     let extractResources (contents: FSharpImplementationFileContents) =
         extractRecordsAndUnions contents.Declarations
