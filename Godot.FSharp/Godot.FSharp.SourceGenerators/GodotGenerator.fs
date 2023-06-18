@@ -7,7 +7,7 @@ open Myriad.Core
 type GodotGenerator() =
     interface IMyriadGenerator with
         member this.Generate(context) =
-            let generators: array<IGodotGenerator> = [|ResourceGenerator()|]
+            let generators: array<IGodotGenerator> = [|ResourceGenerator.Generator(); ObjectGenerator.Generator()|]
 
             let generators =
                 generators
@@ -15,7 +15,7 @@ type GodotGenerator() =
                 |> Array.filter (fun (i, _) -> i > 0)
 
             if generators.Length = 0 then
-                Output.Ast []
+                Output.Source $"No generators found for {context.InputFilename}"
             else
                 if generators.Length > 1
                    || generators |> Array.exists (fun (i, _) -> i > 1) then

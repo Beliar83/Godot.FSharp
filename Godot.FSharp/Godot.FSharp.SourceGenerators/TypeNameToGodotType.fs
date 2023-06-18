@@ -118,7 +118,4 @@ module getTypeNameFromIdent =
                 None)
 
     let convertFSharpTypeToVariantType (typeToConvert: FSharpType) =
-        if typeToConvert.IsAbbreviation then
-            convertManagedTypeToVariantType typeToConvert.AbbreviatedType.TypeDefinition
-        else
-            convertManagedTypeToVariantType typeToConvert.TypeDefinition
+        convertManagedTypeToVariantType (typeToConvert.StripAbbreviations()).TypeDefinition
