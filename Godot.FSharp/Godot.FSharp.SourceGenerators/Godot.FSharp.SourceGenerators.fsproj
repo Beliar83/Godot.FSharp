@@ -19,21 +19,22 @@
             <PackagePath>%(Identity)</PackagePath>
             <Visible>true</Visible>
         </Content>
-        <Compile Include="GodotStubs.fs"/>
-        <Compile Include="TypeNameToGodotType.fs"/>
-        <Compile Include="Variant.fs"/>
-        <Compile Include="IGodotGenerator.fs"/>
-        <Compile Include="GeneratorHelper.fs"/>
-        <Compile Include="ResourceGenerator.fs"/>
-        <Compile Include="ObjectGenerator.fs"/>
-        <Compile Include="GodotGenerator.fs"/>
+        <Compile Include="GodotStubs.fs" />
+        <Compile Include="TypeNameToGodotType.fs" />
+        <Compile Include="Variant.fs" />
+        <Compile Include="IGodotGenerator.fs" />
+        <Compile Include="GeneratorHelper.fs" />
+        <Compile Include="ResourceGenerator.fs" />
+        <Compile Include="ObjectGenerator.fs" />
+        <Compile Include="GodotGenerator.fs" />
+        <Compile Include="DisableGeneratorsAttribute.fs" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="FSharp.Compiler.Service" Version="41.0.7"/>
-        <PackageReference Include="Ionide.ProjInfo.FCS" Version="0.61.3" PrivateAssets="all"/>
-        <PackageReference Include="Myriad.Core" Version="0.8.2" PrivateAssets="all"/>
-        <PackageReference Include="Myriad.Sdk" Version="0.8.2" PrivateAssets="none"/>
-        <PackageReference Update="FSharp.Core" Version="6.0.7"/>
+        <PackageReference Include="FSharp.Compiler.Service" Version="41.0.7" />
+        <PackageReference Include="Ionide.ProjInfo.FCS" Version="0.61.3" PrivateAssets="all" />
+        <PackageReference Include="Myriad.Core" Version="0.8.2" PrivateAssets="all" />
+        <PackageReference Include="Myriad.Sdk" Version="0.8.2" PrivateAssets="none" />
+        <PackageReference Update="FSharp.Core" Version="6.0.7" />
     </ItemGroup>
 
     <Target Name="PackPaketDependencies" BeforeTargets="GenerateNuspec">
