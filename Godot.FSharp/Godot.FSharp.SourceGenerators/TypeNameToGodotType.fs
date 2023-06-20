@@ -1,12 +1,15 @@
 ﻿namespace Godot.FSharp.SourceGenerators
 
+open Godot.FSharp.SourceGenerators.GodotStubs
+open Microsoft.FSharp.Core
+
 module getTypeNameFromIdent =
     open System
     open FSharp.Compiler.Symbols
 
     type VariantType = GodotStubs.Type
 
-    type public TypeMatcher(matchAgainst: GodotStubs.Type) =
+    type public TypeMatcher(matchAgainst: GodotStubs.Type, propertyHint: PropertyHint, hintString : string) =
         let matchesAgainst = ResizeArray()
 
         member this.Add<'a>() =
@@ -18,7 +21,7 @@ module getTypeNameFromIdent =
 
         member this.TryGetType comp =
             match this.Matches comp with
-            | true -> Some matchAgainst
+            | true -> Some (matchAgainst, propertyHint, hintString)
             | false -> None
 
     let private add<'a> () (on: TypeMatcher) = on.Add<'a>()
@@ -38,9 +41,9 @@ module getTypeNameFromIdent =
         let fullName = typeToConvert.FullName
 
         [
-            TypeMatcher(VariantType.Bool).Add<bool>()
-            VariantType.Int
-            |> TypeMatcher
+            TypeMatcher(VariantType.Bool, PropertyHint.None, "").Add<bool>()
+            
+            TypeMatcher(VariantType.Int, PropertyHint.None, "")
             |> add<char> ()
             |> add<sbyte> ()
             |> add<int16> ()
@@ -52,13 +55,13 @@ module getTypeNameFromIdent =
             |> add<uint32> ()
             |> add<uint64> ()
             |> add<uint16> ()
-            VariantType.Float |> TypeMatcher |> add<float> () |> add<double> ()
-            VariantType.String |> TypeMatcher |> add<string> ()
+            TypeMatcher(VariantType.Float, PropertyHint.None, "") |> add<float> () |> add<double> ()
+            TypeMatcher(VariantType.String, PropertyHint.None, "") |> add<string> ()
         ]
         |> tryAndMatch fullName
         |> Option.orElseWith (fun () ->
             if typeToConvert.IsEnum then
-                VariantType.Int |> Some |> Some
+                (VariantType.Int, PropertyHint.Enum, String.Join (",", typeToConvert.FSharpFields |> Seq.map (fun x -> x.Name)) ) |> Some |> Some
             else
                 None)
         |> Option.orElseWith (fun () ->
@@ -70,26 +73,26 @@ module getTypeNameFromIdent =
                    |> Option.defaultValue false
             then
                 match typeToConvert.FullName with
-                | "GodotSharp.Godot.Vector2" -> Some VariantType.Vector2
-                | "GodotSharp.Godot.Vector2I" -> Some VariantType.Vector2I
-                | "GodotSharp.Godot.Rect2" -> Some VariantType.Rect2
-                | "GodotSharp.Godot.Rect2I" -> Some VariantType.Rect2I
-                | "GodotSharp.Godot.Transform2D" -> Some VariantType.Transform2D
-                | "GodotSharp.Godot.Vector3" -> Some VariantType.Vector3
-                | "GodotSharp.Godot.Vector3I" -> Some VariantType.Vector3I
-                | "GodotSharp.Godot.Basis" -> Some VariantType.Basis
-                | "GodotSharp.Godot.Quaternion" -> Some VariantType.Quaternion
-                | "GodotSharp.Godot.Transform3D" -> Some VariantType.Transform3D
-                | "GodotSharp.Godot.Vector4" -> Some VariantType.Vector4
-                | "GodotSharp.Godot.Vector4I" -> Some VariantType.Vector4I
-                | "GodotSharp.Godot.Projection" -> Some VariantType.Projection
-                | "GodotSharp.Godot.Aabb" -> Some VariantType.Aabb
-                | "GodotSharp.Godot.Color" -> Some VariantType.Color
-                | "GodotSharp.Godot.Plane" -> Some VariantType.Plane
-                | "GodotSharp.Godot.Rid" -> Some VariantType.Rid
-                | "GodotSharp.Godot.Callable" -> Some VariantType.Callable
-                | "GodotSharp.Godot.Signal" -> Some VariantType.Signal
-                | "GodotSharp.Godot.Variant" -> Some VariantType.Nil
+                | "GodotSharp.Godot.Vector2" -> Some (VariantType.Vector2, PropertyHint.None, "")
+                | "GodotSharp.Godot.Vector2I" -> Some (VariantType.Vector2I, PropertyHint.None, "")
+                | "GodotSharp.Godot.Rect2" -> Some (VariantType.Rect2, PropertyHint.None, "")
+                | "GodotSharp.Godot.Rect2I" -> Some (VariantType.Rect2I, PropertyHint.None, "")
+                | "GodotSharp.Godot.Transform2D" -> Some (VariantType.Transform2D, PropertyHint.None, "")
+                | "GodotSharp.Godot.Vector3" -> Some (VariantType.Vector3, PropertyHint.None, "")
+                | "GodotSharp.Godot.Vector3I" -> Some (VariantType.Vector3I, PropertyHint.None, "")
+                | "GodotSharp.Godot.Basis" -> Some (VariantType.Basis, PropertyHint.None, "")
+                | "GodotSharp.Godot.Quaternion" -> Some (VariantType.Quaternion, PropertyHint.None, "")
+                | "GodotSharp.Godot.Transform3D" -> Some (VariantType.Transform3D, PropertyHint.None, "")
+                | "GodotSharp.Godot.Vector4" -> Some (VariantType.Vector4, PropertyHint.None, "")
+                | "GodotSharp.Godot.Vector4I" -> Some (VariantType.Vector4I, PropertyHint.None, "")
+                | "GodotSharp.Godot.Projection" -> Some (VariantType.Projection, PropertyHint.None, "")
+                | "GodotSharp.Godot.Aabb" -> Some (VariantType.Aabb, PropertyHint.None, "")
+                | "GodotSharp.Godot.Color" -> Some (VariantType.Color, PropertyHint.None, "")
+                | "GodotSharp.Godot.Plane" -> Some (VariantType.Plane, PropertyHint.None, "")
+                | "GodotSharp.Godot.Rid" -> Some (VariantType.Rid, PropertyHint.None, "")
+                | "GodotSharp.Godot.Callable" -> Some (VariantType.Callable, PropertyHint.None, "")
+                | "GodotSharp.Godot.Signal" -> Some (VariantType.Signal, PropertyHint.None, "")
+                | "GodotSharp.Godot.Variant" -> Some (VariantType.Nil, PropertyHint.None, "")
                 | _ -> None
                 |> Some
             else
@@ -103,19 +106,39 @@ module getTypeNameFromIdent =
                         typeToConvert.GenericParameters |> Seq.head
 
                     [
-                        TypeMatcher(VariantType.PackedByteArray).Add<byte>()
-                        TypeMatcher(VariantType.PackedInt32Array).Add<int32>()
-                        TypeMatcher(VariantType.PackedInt64Array).Add<int64>()
-                        TypeMatcher(VariantType.PackedFloat32Array).Add<float32>()
-                        TypeMatcher(VariantType.PackedFloat64Array).Add<float>()
-                        TypeMatcher(VariantType.PackedStringArray).Add<string>()
+                        TypeMatcher(VariantType.PackedByteArray, PropertyHint.ArrayType, "").Add<byte>()
+                        TypeMatcher(VariantType.PackedInt32Array, PropertyHint.ArrayType, "").Add<int32>()
+                        TypeMatcher(VariantType.PackedInt64Array, PropertyHint.ArrayType, "").Add<int64>()
+                        TypeMatcher(VariantType.PackedFloat32Array, PropertyHint.ArrayType, "").Add<float32>()
+                        TypeMatcher(VariantType.PackedFloat64Array, PropertyHint.ArrayType, "").Add<float>()
+                        TypeMatcher(VariantType.PackedStringArray, PropertyHint.ArrayType, "").Add<string>()
                     ]
                     |> tryAndMatch generic.FullName
                     |> Option.orElseWith (fun () ->
                         //if generic.Assembly.QualifiedName = "GodotSharp" && generic.
                         None)
             else
-                None)
+                let rec isGodotObject (entity : FSharpEntity) =
+                    if entity.FullName = "Godot.Resource" then (true, PropertyHint.ResourceType)
+                    elif entity.FullName = "Godot.Node" then (true, PropertyHint.NodeType)
+                    elif entity.FullName = "Godot.GodotObject" then (true, PropertyHint.None)
+                    else
+                        match entity.BaseType with
+                        | None -> (false, PropertyHint.None)
+                        | Some value -> isGodotObject value.TypeDefinition
+                
+                let isObject, propertyHint = isGodotObject typeToConvert
+                
+                let hintString =
+                    match propertyHint with
+                    | PropertyHint.ResourceType -> typeToConvert.DisplayName
+                    | _ -> ""
+                
+                if isObject then
+                    Some (VariantType.Object, propertyHint, hintString) |> Some
+                else                
+                    None
+            )
 
     let convertFSharpTypeToVariantType (typeToConvert: FSharpType) =
         convertManagedTypeToVariantType (typeToConvert.StripAbbreviations()).TypeDefinition

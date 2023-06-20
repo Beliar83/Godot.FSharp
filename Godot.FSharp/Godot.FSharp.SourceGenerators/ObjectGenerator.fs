@@ -547,53 +547,54 @@ type {toGenerate.Name}() =
                                       |> Seq.rev
                                       |> Seq.tail
                                       |> Seq.collect id do
-                                      let paramType =
-                                          match getTypeNameFromIdent.convertFSharpTypeToVariantType param.Type with
-                                          | None -> Type.Nil
-                                          | Some value ->
-                                              match value with
-                                              | None -> Type.Nil
-                                              | Some value -> value
-
+                                      let paramType, propertyHint, hintString =
+                                            match getTypeNameFromIdent.convertFSharpTypeToVariantType param.Type with
+                                            | None -> (Type.Nil, PropertyHint.None, "")
+                                            | Some value ->
+                                                match value with
+                                                | None -> (Type.Nil, PropertyHint.None, "")
+                                                | Some value -> value
                                       { MethodParam.Name = param.DisplayName
                                         OfTypeName = param.Type.TypeDefinition.DisplayName
                                         OfType = paramType
-                                        PropertyHint = PropertyHint.None
+                                        PropertyHint = propertyHint
                                         UsageFlags = PropertyUsageFlags.Default
-                                        HintText = "" } ]
+                                        HintText = hintString } ]
                             MethodFlags = MethodFlags.Default } ]
 
                 StateToGenerate =
                     { Name = state.DisplayName
                       ExportedFields =
                           [ for field in exportedFields do
-                                { Name = field.DisplayName
-                                  OfTypeName = field.FieldType.TypeDefinition.DisplayName
-                                  OfType =
+                                let typ, propertyHint, hintString =
                                       match getTypeNameFromIdent.convertFSharpTypeToVariantType field.FieldType with
-                                      | None -> Type.Nil
+                                      | None -> (Type.Nil, PropertyHint.None, "")
                                       | Some value ->
                                           match value with
-                                          | None -> Type.Nil
-                                          | Some value -> value
-                                  PropertyHint = PropertyHint.None
-                                  HintText = ""
+                                          | None -> (Type.Nil, PropertyHint.None, "")
+                                          | Some value -> value                                
+                                { Name = field.DisplayName
+                                  OfTypeName = field.FieldType.TypeDefinition.DisplayName                                  
+                                  OfType = typ                                      
+                                  PropertyHint = propertyHint
+                                  HintText = hintString
                                   UsageFlags =
                                       PropertyUsageFlags.Default
                                       ||| PropertyUsageFlags.ScriptVariable } ]
                       InnerFields =
                           [ for field in notExportedFields do
-                                { Name = field.DisplayName
-                                  OfTypeName = field.FieldType.TypeDefinition.DisplayName
-                                  OfType =
+                                let typ, propertyHint, hintString =
                                       match getTypeNameFromIdent.convertFSharpTypeToVariantType field.FieldType with
-                                      | None -> Type.Nil
+                                      | None -> (Type.Nil, PropertyHint.None, "")
                                       | Some value ->
                                           match value with
-                                          | None -> Type.Nil
-                                          | Some value -> value
-                                  PropertyHint = PropertyHint.None
-                                  HintText = ""
+                                          | None -> (Type.Nil, PropertyHint.None, "")
+                                          | Some value -> value   
+                                { Name = field.DisplayName
+                                  OfTypeName = field.FieldType.TypeDefinition.DisplayName
+                                  OfType = typ
+                                  PropertyHint = propertyHint
+                                  HintText = hintString
                                   UsageFlags =
                                       PropertyUsageFlags.Default
                                       ||| PropertyUsageFlags.ScriptVariable } ] }

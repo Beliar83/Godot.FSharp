@@ -59,12 +59,12 @@ module ResourceGenerator =
                 |> Seq.filter (fun x -> x.DisplayName <> "Default")
 
             for field in publicFields do
-                let godotType =
+                let godotType , propertyHint, hintString =
                     match getTypeNameFromIdent.convertFSharpTypeToVariantType field.FieldType with
-                    | None -> Type.Nil
+                    | None -> (Type.Nil, PropertyHint.None, "")
                     | Some value ->
                         match value with
-                        | None -> Type.Nil
+                        | None -> (Type.Nil, PropertyHint.None, "")
                         | Some value -> value
 
                 let fieldName = field.DisplayName
@@ -74,6 +74,8 @@ module ResourceGenerator =
                     .AppendLine($"\t\tpropertyDefinition.Add(\"name\", \"{fieldName}\")")
                     .AppendLine($"\t\tpropertyDefinition.Add(\"type\", \"{int godotType}\")")
                     .AppendLine($"\t\tpropertyDefinition.Add(\"usage\", {GeneratorHelper.defaultPropertyUsage})")
+                    .AppendLine($"\t\tpropertyDefinition.Add(\"hint\", int PropertyHint.{propertyHint})")
+                    .AppendLine($"\t\tpropertyDefinition.Add(\"hint_string\", \"{hintString}\")")
                     .AppendLine("\t\tpropertyList.Add propertyDefinition")
                     .AppendLine()
                 |> ignore
@@ -161,13 +163,13 @@ module ResourceGenerator =
                     )
                     |> ignore
 
-                    let godotType =
-                        match getTypeNameFromIdent.convertFSharpTypeToVariantType field.FieldType with
-                        | None -> Type.Nil
-                        | Some value ->
-                            match value with
-                            | None -> Type.Nil
-                            | Some value -> value
+                    let godotType , propertyHint, hintString =
+                            match getTypeNameFromIdent.convertFSharpTypeToVariantType field.FieldType with
+                            | None -> (Type.Nil, PropertyHint.None, "")
+                            | Some value ->
+                                match value with
+                                | None -> (Type.Nil, PropertyHint.None, "")
+                                | Some value -> value
 
                     let defaultValue =
                         match getGodotDefault godotType with
@@ -181,6 +183,8 @@ module ResourceGenerator =
                         .AppendLine($"\t\t\t\tpropertyDefinition.Add(\"name\", \"{fieldName}\")")
                         .AppendLine($"\t\t\t\tpropertyDefinition.Add(\"type\", \"{int godotType}\")")
                         .AppendLine($"\t\t\t\tpropertyDefinition.Add(\"usage\", {GeneratorHelper.defaultPropertyUsage})")
+                        .AppendLine($"\t\t\t\tpropertyDefinition.Add(\"hint\", int PropertyHint.{propertyHint})")
+                        .AppendLine($"\t\t\t\tpropertyDefinition.Add(\"hint_string\", \"{hintString}\")")
                         .AppendLine("\t\t\t\tpropertyList.Add propertyDefinition")
                         .AppendLine()
                     |> ignore
