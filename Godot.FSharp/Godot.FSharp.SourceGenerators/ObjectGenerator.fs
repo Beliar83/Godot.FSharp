@@ -182,45 +182,56 @@ module ObjectGenerator =
 
     let private generateSetFields (fields: List<Field>) : string =
 
-        let generateSetField (field: Field, isFirst) : string =
-            $"    {generateIfPart isFirst} StringName.op_Equality (\"{field.Name}\",&name) then
-            let castedValue = VariantUtils.ConvertTo<{field.OfTypeName}>(&value)
-            let currentState = getState()
-            let newState = {{
-                currentState with
-                    {field.Name} = castedValue
-            }}
-            setState newState
-            true
-            "
+        let builder = StringBuilder();
+        
+        let generateSetField (field: Field) (isFirst) =
+            builder
+                .AppendLine($"\t\t{generateIfPart isFirst} StringName.op_Equality (\"{field.Name}\",&name) then")
+                .AppendLine($"\t\t\tlet castedValue = VariantUtils.ConvertTo<{field.OfTypeName}>(&value)")
+                .AppendLine($"\t\t\tlet currentState = getState()")
+                .AppendLine($"\t\t\tlet newState = {{")
+                .AppendLine($"\t\t\t\tcurrentState with")
+                .AppendLine($"\t\t\t\t\t{field.Name} = castedValue")
+                .AppendLine($"\t\t\t}}")
+                .AppendLine($"\t\t\tsetState newState")
+                .AppendLine($"\t\t\ttrue")
+                |> ignore
 
-        let fields =
-            fields |> mapWithFirst generateSetField |> concat
-
-        fields
-        + "
-        else
-            base.SetGodotClassPropertyValue(&name, &value)
-        "
-
+        generateSetField (fields |> List.head) true
+        
+        for field in fields |> List.tail do
+            generateSetField field false        
+        
+        builder
+            .AppendLine("\t\telse")
+            .AppendLine("\t\t\tbase.SetGodotClassPropertyValue(&name, &value)")
+            |> ignore
+        builder.ToString().Replace("\t", "    ")
+        
     let private generateGetFields (fields: List<Field>) : string =
-        let generateGetField (field: Field, isFirst: bool) =
-            $"    {generateIfPart isFirst} StringName.op_Equality (\"{field.Name}\", &name) then
-            let state = getState ()
-            let fromState = state.{field.Name}
-            let casted = VariantUtils.CreateFrom<{field.OfTypeName}>(&fromState)
-            value <- casted
-            true
-            "
+        let builder = StringBuilder();
+        
+        let generateGetField (field: Field) (isFirst: bool) =
+            builder
+                .AppendLine($"\t\t{generateIfPart isFirst} StringName.op_Equality (\"{field.Name}\", &name) then")
+                .AppendLine($"\t\t\tlet state = getState ()")
+                .AppendLine($"\t\t\tlet fromState = state.{field.Name}")
+                .AppendLine($"\t\t\tlet casted = VariantUtils.CreateFrom<{field.OfTypeName}>(&fromState)")
+                .AppendLine($"\t\t\tvalue <- casted")
+                .AppendLine($"\t\t\ttrue")
+                |> ignore                       
 
-        let fields =
-            fields |> mapWithFirst generateGetField |> concat
+        generateGetField (fields |> List.head) true
+        
+        for field in fields |> List.tail do
+            generateGetField field false
+        
+        builder
+            .AppendLine("\t\telse")
+            .AppendLine("\t\t\tbase.GetGodotClassPropertyValue(&name,&value)")
+            |> ignore
 
-        fields
-        + "
-        else
-            base.GetGodotClassPropertyValue(&name,&value)
-        "
+        builder.ToString().Replace("\t", "    ")
 
     let private generatePropertyList (fields: List<Field>) (isExported: bool) : string =
         let generatePropertyItem (field: Field) : string =
@@ -309,10 +320,10 @@ type {toGenerate.Name}() =
     member this._HasGodotClassMethod(method : inref<_>) =
         {generateHasGodotClassMethod toGenerate.methods} || base.HasGodotClassMethod(&method)
 
-    member this._SetGodotClassPropertyValue(name : inref<_>, value : inref<_>) =
-    {generateSetFields toGenerate.StateToGenerate.ExportedFields}
-    member this._GetGodotClassPropertyValue(name : inref<_>, value : outref<_>) =
-    {generateGetFields toGenerate.StateToGenerate.ExportedFields}
+    override this.SetGodotClassPropertyValue(name : inref<_>, value : inref<_>) =
+{generateSetFields toGenerate.StateToGenerate.ExportedFields}
+    override this.GetGodotClassPropertyValue(name : inref<_>, value) =
+{generateGetFields toGenerate.StateToGenerate.ExportedFields}
     static member GetGodotPropertyList() =
         let properties = ResizeArray()
         {generatePropertyList toGenerate.StateToGenerate.ExportedFields true}
@@ -612,7 +623,8 @@ using Godot.Bridge;
 namespace {outputNamespace};
 
 [DisableGenerators(new[]{{"ScriptSerialization"}})]
-public abstract partial class {nodeName} : GeneratedNodes.{outputNamespace}.{nodeName}
+[Tool]
+public partial class {nodeName} : GeneratedNodes.{outputNamespace}.{nodeName}
 {{
 	/// <inheritdoc />
 	protected override void SaveGodotObjectData(GodotSerializationInfo info)
