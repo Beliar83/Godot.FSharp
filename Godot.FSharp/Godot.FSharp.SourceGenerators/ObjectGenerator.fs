@@ -547,6 +547,10 @@ type {toGenerate.Name}() =
                                       |> Seq.rev
                                       |> Seq.tail
                                       |> Seq.collect id do
+                                      let typeName =
+                                          match GeneratorHelper.getNamespaceOfType param.Type with
+                                          | None -> param.Type.TypeDefinition.DisplayName
+                                          | Some typeNamespace -> $"{typeNamespace}.{param.Type.TypeDefinition.DisplayName}"
                                       let paramType, propertyHint, hintString =
                                             match getTypeNameFromIdent.convertFSharpTypeToVariantType param.Type with
                                             | None -> (Type.Nil, PropertyHint.None, "")
@@ -555,7 +559,7 @@ type {toGenerate.Name}() =
                                                 | None -> (Type.Nil, PropertyHint.None, "")
                                                 | Some value -> value
                                       { MethodParam.Name = param.DisplayName
-                                        OfTypeName = param.Type.TypeDefinition.DisplayName
+                                        OfTypeName = typeName
                                         OfType = paramType
                                         PropertyHint = propertyHint
                                         UsageFlags = PropertyUsageFlags.Default
@@ -566,6 +570,10 @@ type {toGenerate.Name}() =
                     { Name = state.DisplayName
                       ExportedFields =
                           [ for field in exportedFields do
+                                let typeName =
+                                    match GeneratorHelper.getNamespaceOfType field.FieldType with
+                                    | None -> field.FieldType.TypeDefinition.DisplayName
+                                    | Some typeNamespace -> $"{typeNamespace}.{field.FieldType.TypeDefinition.DisplayName}"
                                 let typ, propertyHint, hintString =
                                       match getTypeNameFromIdent.convertFSharpTypeToVariantType field.FieldType with
                                       | None -> (Type.Nil, PropertyHint.None, "")
@@ -574,7 +582,7 @@ type {toGenerate.Name}() =
                                           | None -> (Type.Nil, PropertyHint.None, "")
                                           | Some value -> value                                
                                 { Name = field.DisplayName
-                                  OfTypeName = field.FieldType.TypeDefinition.DisplayName                                  
+                                  OfTypeName = typeName                            
                                   OfType = typ                                      
                                   PropertyHint = propertyHint
                                   HintText = hintString
@@ -583,6 +591,10 @@ type {toGenerate.Name}() =
                                       ||| PropertyUsageFlags.ScriptVariable } ]
                       InnerFields =
                           [ for field in notExportedFields do
+                                let typeName =
+                                    match GeneratorHelper.getNamespaceOfType field.FieldType with
+                                    | None -> field.FieldType.TypeDefinition.DisplayName
+                                    | Some typeNamespace -> $"{typeNamespace}.{field.FieldType.TypeDefinition.DisplayName}"
                                 let typ, propertyHint, hintString =
                                       match getTypeNameFromIdent.convertFSharpTypeToVariantType field.FieldType with
                                       | None -> (Type.Nil, PropertyHint.None, "")
@@ -591,7 +603,7 @@ type {toGenerate.Name}() =
                                           | None -> (Type.Nil, PropertyHint.None, "")
                                           | Some value -> value   
                                 { Name = field.DisplayName
-                                  OfTypeName = field.FieldType.TypeDefinition.DisplayName
+                                  OfTypeName = typeName
                                   OfType = typ
                                   PropertyHint = propertyHint
                                   HintText = hintString

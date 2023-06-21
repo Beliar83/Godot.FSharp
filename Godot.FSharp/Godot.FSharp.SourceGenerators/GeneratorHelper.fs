@@ -150,3 +150,17 @@ module GeneratorHelper =
                     [ x ]
                 else
                     [])
+            
+    let getNamespaceOfEntity (definition : FSharpEntity) =
+        match definition.DeclaringEntity with
+        | None ->
+            match definition.Namespace with
+            | None -> None
+            | Some value -> Some($"{value}")        
+        | Some declaringEntity ->
+            match declaringEntity.Namespace with
+            | None -> Some($"{declaringEntity.FullName}")
+            | Some entityNamespace -> Some($"{entityNamespace}.{declaringEntity.FullName}")            
+    
+    let getNamespaceOfType (typ : FSharpType) =
+        getNamespaceOfEntity typ.TypeDefinition
