@@ -4,9 +4,12 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <WarnOn>3390;$(WarnOn)</WarnOn>
         <MyriadSdkVerboseOutput>true</MyriadSdkVerboseOutput>
-        <Version>0.0.2-alpha</Version>
+        <Version>0.0.2</Version>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <RepositoryUrl>https://github.com/Beliar83/Godot.FSharp.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
     </PropertyGroup>
     <ItemGroup>
         <Content Include="build\Godot.FSharp.SourceGenerators.Test.props">
@@ -28,6 +31,9 @@
         <Compile Include="ObjectGenerator.fs" />
         <Compile Include="GodotGenerator.fs" />
         <Compile Include="DisableGeneratorsAttribute.fs" />
+        <None Include="../../README.md" Pack="true" PackagePath="\">
+          <Link>README.md</Link>
+        </None>
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="FSharp.Compiler.Service" Version="41.0.7" />
