@@ -10,6 +10,7 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <RepositoryUrl>https://github.com/Beliar83/Godot.FSharp.git</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
     </PropertyGroup>
     <ItemGroup>
         <Content Include="build\Godot.FSharp.SourceGenerators.Test.props">
@@ -34,6 +35,9 @@
         <None Include="../../README.md" Pack="true" PackagePath="\">
           <Link>README.md</Link>
         </None>
+        <None Include="../../LICENSE" Pack="true" PackagePath="\">
+            <Link>LICENSE</Link>
+        </None>        
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="FSharp.Compiler.Service" Version="41.0.7" />
