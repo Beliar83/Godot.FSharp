@@ -125,7 +125,7 @@ module getTypeNameFromIdent =
                     else
                         match entity.BaseType with
                         | None -> (false, PropertyHint.None)
-                        | Some value -> isGodotObject value.TypeDefinition
+                        | Some value -> isGodotObject (value.StripAbbreviations()).TypeDefinition
                 
                 let isObject, propertyHint = isGodotObject typeToConvert
                 

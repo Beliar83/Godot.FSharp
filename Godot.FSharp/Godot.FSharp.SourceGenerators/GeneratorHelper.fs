@@ -164,3 +164,14 @@ module GeneratorHelper =
     
     let getNamespaceOfType (typ : FSharpType) =
         getNamespaceOfEntity typ.TypeDefinition
+        
+    let getScope (entity: FSharpEntity) =
+        match entity.DeclaringEntity with
+        | Some declaringEntity ->
+            match declaringEntity.Namespace with
+            | Some value -> $"{value}.{declaringEntity.DisplayName}"
+            | None -> declaringEntity.FullName
+        | None ->
+            match entity.Namespace with
+            | Some value -> value
+            | None -> "global"        

@@ -183,53 +183,61 @@ module ObjectGenerator =
     let private generateSetFields (fields: List<Field>) : string =
 
         let builder = StringBuilder();
-        
-        let generateSetField (field: Field) (isFirst) =
+        if fields.Length = 0 then
             builder
-                .AppendLine($"\t\t{generateIfPart isFirst} StringName.op_Equality (\"{field.Name}\",&name) then")
-                .AppendLine($"\t\t\tlet castedValue = VariantUtils.ConvertTo<{field.OfTypeName}>(&value)")
-                .AppendLine($"\t\t\tlet currentState = getState()")
-                .AppendLine($"\t\t\tlet newState = {{")
-                .AppendLine($"\t\t\t\tcurrentState with")
-                .AppendLine($"\t\t\t\t\t{field.Name} = castedValue")
-                .AppendLine($"\t\t\t}}")
-                .AppendLine($"\t\t\tsetState newState")
-                .AppendLine($"\t\t\ttrue")
-                |> ignore
+                .AppendLine("\t\tbase.SetGodotClassPropertyValue(&name, &value)")
+                |> ignore            
+        else        
+            let generateSetField (field: Field) (isFirst) =
+                builder
+                    .AppendLine($"\t\t{generateIfPart isFirst} StringName.op_Equality (\"{field.Name}\",&name) then")
+                    .AppendLine($"\t\t\tlet castedValue = VariantUtils.ConvertTo<{field.OfTypeName}>(&value)")
+                    .AppendLine($"\t\t\tlet currentState = getState()")
+                    .AppendLine($"\t\t\tlet newState = {{")
+                    .AppendLine($"\t\t\t\tcurrentState with")
+                    .AppendLine($"\t\t\t\t\t{field.Name} = castedValue")
+                    .AppendLine($"\t\t\t}}")
+                    .AppendLine($"\t\t\tsetState newState")
+                    .AppendLine($"\t\t\ttrue")
+                    |> ignore
 
-        generateSetField (fields |> List.head) true
-        
-        for field in fields |> List.tail do
-            generateSetField field false        
-        
-        builder
-            .AppendLine("\t\telse")
-            .AppendLine("\t\t\tbase.SetGodotClassPropertyValue(&name, &value)")
-            |> ignore
+            generateSetField (fields |> List.head) true
+            if fields.Length > 1 then
+                for field in fields |> List.tail do
+                    generateSetField field false        
+            
+            builder
+                .AppendLine("\t\telse")
+                .AppendLine("\t\t\tbase.SetGodotClassPropertyValue(&name, &value)")
+                |> ignore
         builder.ToString().Replace("\t", "    ")
         
     let private generateGetFields (fields: List<Field>) : string =
         let builder = StringBuilder();
-        
-        let generateGetField (field: Field) (isFirst: bool) =
-            builder
-                .AppendLine($"\t\t{generateIfPart isFirst} StringName.op_Equality (\"{field.Name}\", &name) then")
-                .AppendLine($"\t\t\tlet state = getState ()")
-                .AppendLine($"\t\t\tlet fromState = state.{field.Name}")
-                .AppendLine($"\t\t\tlet casted = VariantUtils.CreateFrom<{field.OfTypeName}>(&fromState)")
-                .AppendLine($"\t\t\tvalue <- casted")
-                .AppendLine($"\t\t\ttrue")
-                |> ignore                       
+        if fields.Length = 0 then
+         builder
+                .AppendLine("\t\tbase.GetGodotClassPropertyValue(&name,&value)")
+                |> ignore        
+        else            
+            let generateGetField (field: Field) (isFirst: bool) =
+                builder
+                    .AppendLine($"\t\t{generateIfPart isFirst} StringName.op_Equality (\"{field.Name}\", &name) then")
+                    .AppendLine($"\t\t\tlet state = getState ()")
+                    .AppendLine($"\t\t\tlet fromState = state.{field.Name}")
+                    .AppendLine($"\t\t\tlet casted = VariantUtils.CreateFrom<{field.OfTypeName}>(&fromState)")
+                    .AppendLine($"\t\t\tvalue <- casted")
+                    .AppendLine($"\t\t\ttrue")
+                    |> ignore                       
 
-        generateGetField (fields |> List.head) true
-        
-        for field in fields |> List.tail do
-            generateGetField field false
-        
-        builder
-            .AppendLine("\t\telse")
-            .AppendLine("\t\t\tbase.GetGodotClassPropertyValue(&name,&value)")
-            |> ignore
+            generateGetField (fields |> List.head) true            
+            if fields.Length > 1 then
+                for field in fields |> List.tail do
+                    generateGetField field false
+            
+            builder
+                .AppendLine("\t\telse")
+                .AppendLine("\t\t\tbase.GetGodotClassPropertyValue(&name,&value)")
+                |> ignore
 
         builder.ToString().Replace("\t", "    ")
 
@@ -469,10 +477,7 @@ type {toGenerate.Name}() =
                 deltaArgumentTypeDefinition.FullName = typeof<Double>.FullName
 
         let generateInfo (entity: FSharpEntity) (state: FSharpEntity) (node: FSharpType) outputNamespace =
-            let outputNamespace =
-                match entity.DeclaringEntity with
-                | None -> outputNamespace
-                | Some value -> $"{outputNamespace}.{value.FullName}"
+            let outputNamespace = [outputNamespace; GeneratorHelper.getScope entity] |> String.concat "."
 
             let exportedFields =
                 state.FSharpFields
@@ -611,17 +616,11 @@ type {toGenerate.Name}() =
                                       PropertyUsageFlags.Default
                                       ||| PropertyUsageFlags.ScriptVariable } ] }
                 InNamespace = $"GeneratedNodes.{outputNamespace}"
-                ModuleNameToOpen =
-                    match entity.DeclaringEntity with
-                    | None -> $"{entity.FullName}"
-                    | Some value -> $"{value.FullName}.{entity.DisplayName}" } ]
+                ModuleNameToOpen = $"{GeneratorHelper.getScope entity}.{entity.DisplayName}" } ]
 
         let writeCSharpClass (outputNamespace: string) (outputFolder: string) (node: FSharpEntity) =
 
-            let outputNamespace =
-                match node.DeclaringEntity with
-                | None -> outputNamespace
-                | Some value -> $"{outputNamespace}.{value.FullName}"
+            let outputNamespace = [outputNamespace; GeneratorHelper.getScope node] |> String.concat "."
 
             let nodeName = node.DisplayNameCore
             Directory.CreateDirectory outputFolder |> ignore
@@ -748,7 +747,7 @@ public partial class {nodeName} : GeneratedNodes.{outputNamespace}.{nodeName}
                         logger.Flush()
                         logger.Close()
 
-                    raise x
+                    reraise()
 
             member this.GetNumberOfGeneratedTypes(context: GeneratorContext) =
                 let contents =

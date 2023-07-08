@@ -19,18 +19,6 @@ module ResourceGenerator =
 
         let listDelimiter = ", "
 
-
-        let getScope (entity: FSharpEntity) =
-            match entity.DeclaringEntity with
-            | Some declaringEntity ->
-                match declaringEntity.Namespace with
-                | Some value -> $"{value}.{declaringEntity.DisplayName}"
-                | None -> declaringEntity.FullName
-            | None ->
-                match entity.Namespace with
-                | Some value -> value
-                | None -> "global"
-
         let handleRecord (builder: StringBuilder) (record: FSharpEntity) =
             let hasDefaultMember =
                 record.MembersFunctionsAndValues
@@ -47,7 +35,7 @@ module ResourceGenerator =
                 |> raise
 
             let name = record.DisplayName
-            let scope = getScope record
+            let scope = GeneratorHelper.getScope record
 
             let propertyDefinitionBuilder = StringBuilder()
             let getBuilder = StringBuilder()
@@ -118,7 +106,7 @@ module ResourceGenerator =
             let name = union.DisplayName
             let cases = union.UnionCases
 
-            let scope = getScope union
+            let scope = GeneratorHelper.getScope union
 
             let caseHint =
                 let cases =
