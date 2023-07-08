@@ -4,13 +4,14 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <WarnOn>3390;$(WarnOn)</WarnOn>
         <MyriadSdkVerboseOutput>true</MyriadSdkVerboseOutput>
-        <Version>0.0.2</Version>
+        <Version>0.0.3</Version>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <RepositoryUrl>https://github.com/Beliar83/Godot.FSharp.git</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Authors>lenscas, beliar83</Authors>
     </PropertyGroup>
     <ItemGroup>
         <Content Include="build\Godot.FSharp.SourceGenerators.Test.props">
