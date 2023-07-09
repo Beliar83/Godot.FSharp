@@ -151,34 +151,49 @@ module ObjectGenerator =
         methods |> mapAndConcat generateMethod
 
     let private generateInvokeGodotClassMethods (methods: List<MethodsToGenerate>) =
-        let generateParamsForCall (paramsOfMethod: List<MethodParam>) =
-            let generateParamForCall (position: int) (param: MethodParam) =
-                $"Godot.NativeInterop.VariantUtils.ConvertTo<{param.OfTypeName}>(&args[{position}])"
+        let builder = StringBuilder()
+        if methods.Length = 0 then
+            builder
+                .AppendLine("\t\tbase.InvokeGodotClassMethod(&method, args, &ret)")
+                |> ignore
+        else
+            let generateParamsForCall (paramsOfMethod: List<MethodParam>) =
+                let generateParamForCall (position: int) (param: MethodParam) =
+                    $"Godot.NativeInterop.VariantUtils.ConvertTo<{param.OfTypeName}>(&args[{position}])"
 
-            paramsOfMethod
-            |> Seq.mapi generateParamForCall
-            |> String.concat ","
+                paramsOfMethod
+                |> Seq.mapi generateParamForCall
+                |> String.concat ","
 
-        let generateInvokeGodotClassMethod (method: MethodsToGenerate, isFirst) =
-            $"
-        {generateIfPart isFirst} (StringName.op_Equality (\"{method.MethodName}\",&method) && args.Count = {method.MethodParams.Length}) then
-            this.{method.MethodName}({generateParamsForCall method.MethodParams})
-            true
-            "
+            let generateInvokeGodotClassMethod (method: MethodsToGenerate) (isFirst) =
+                builder
+                    .AppendLine($"\t\t{generateIfPart isFirst} (StringName.op_Equality (\"{method.MethodName}\",&method) && args.Count = {method.MethodParams.Length}) then")
+                    .AppendLine($"\t\t\tthis.{method.MethodName}({generateParamsForCall method.MethodParams})")
+                    .AppendLine($"\t\t\ttrue")
+                    |> ignore
+            generateInvokeGodotClassMethod methods.Head true
+            for method in methods.Tail do
+                generateInvokeGodotClassMethod method false
 
-        methods
-        |> mapWithFirst generateInvokeGodotClassMethod
-        |> concat
+            builder
+                .AppendLine("\t\telse")
+                .AppendLine("\t\t\tbase.InvokeGodotClassMethod(&method, args, &ret)")
+                |> ignore
+
+
+        builder.ToString().Replace("\t", "    ")
 
     let private generateHasGodotClassMethod (methods: List<MethodsToGenerate>) =
-        let generateHasGodotMethod (method: MethodsToGenerate) =
-            $"
-            StringName.op_Equality(\"{method.MethodName}\", &method)
-            "
+        let builder = StringBuilder()
+        for method in methods do
+            builder
+                .AppendLine($"\t\tStringName.op_Equality(\"{method.MethodName}\", &method) ||")
+                |> ignore
 
-        methods
-        |> Seq.map generateHasGodotMethod
-        |> String.concat "||"
+        builder
+            .AppendLine("\t\tbase.HasGodotClassMethod(&method)")
+            |> ignore
+        builder.ToString().Replace("\t", "    ")
 
     let private generateSetFields (fields: List<Field>) : string =
 
@@ -321,12 +336,10 @@ type {toGenerate.Name}() =
         {generateMethodList toGenerate.methods}
         methods
     member this._InvokeGodotClassMethod(method : inref<_>, args : NativeVariantPtrArgs, ret : outref<_>) =
-        {generateInvokeGodotClassMethods toGenerate.methods}
-        else
-            base.InvokeGodotClassMethod(&method, args, &ret)
+{generateInvokeGodotClassMethods toGenerate.methods}
 
     member this._HasGodotClassMethod(method : inref<_>) =
-        {generateHasGodotClassMethod toGenerate.methods} || base.HasGodotClassMethod(&method)
+{generateHasGodotClassMethod toGenerate.methods}
 
     override this.SetGodotClassPropertyValue(name : inref<_>, value : inref<_>) =
 {generateSetFields toGenerate.StateToGenerate.ExportedFields}
