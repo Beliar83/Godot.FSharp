@@ -332,7 +332,7 @@ type {toGenerate.Name}() =
 
     {generateMethods toGenerate.methods}
     static member GetGodotMethodList() =
-        let methods = ResizeArray()
+        let methods = ResizeArray<MethodInfo>()
         {generateMethodList toGenerate.methods}
         methods
     member this._InvokeGodotClassMethod(method : inref<_>, args : NativeVariantPtrArgs, ret : outref<_>) =
@@ -628,12 +628,12 @@ type {toGenerate.Name}() =
                                   UsageFlags =
                                       PropertyUsageFlags.Default
                                       ||| PropertyUsageFlags.ScriptVariable } ] }
-                InNamespace = $"GeneratedNodes.{outputNamespace}"
+                InNamespace = $"{outputNamespace}"
                 ModuleNameToOpen = $"{GeneratorHelper.getScope entity}.{entity.DisplayName}" } ]
 
         let writeCSharpClass (outputNamespace: string) (outputFolder: string) (node: FSharpEntity) =
 
-            let outputNamespace = [outputNamespace; GeneratorHelper.getScope node] |> String.concat "."
+            let nodeNamespace = [outputNamespace; GeneratorHelper.getScope node] |> String.concat "."
 
             let nodeName = node.DisplayNameCore
             Directory.CreateDirectory outputFolder |> ignore
@@ -649,7 +649,7 @@ namespace {outputNamespace};
 
 [DisableGenerators(new[]{{"ScriptSerialization"}})]
 [Tool]
-public partial class {nodeName} : GeneratedNodes.{outputNamespace}.{nodeName}
+public partial class {nodeName} : {nodeNamespace}.{nodeName}
 {{
 	/// <inheritdoc />
 	protected override void SaveGodotObjectData(GodotSerializationInfo info)
@@ -693,7 +693,7 @@ public partial class {nodeName} : GeneratedNodes.{outputNamespace}.{nodeName}
                                 Some(v :?> string)
                             else
                                 None)
-                    |> Option.defaultValue "UnknownNamespace"
+                    |> Option.defaultValue "Generated"
 
                 let writeDebug =
                     config
