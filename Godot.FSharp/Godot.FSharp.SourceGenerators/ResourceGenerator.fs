@@ -412,7 +412,7 @@ module ResourceGenerator =
                                     Some(v :?> string)
                                 else
                                     None)
-                        |> Option.defaultValue "UnknownNamespace"
+                        |> Option.defaultValue "Generated"
 
                     let writeResourcesOfScope =
                         writeResourcesOfScope (writeCSharpClass outputNamespace outputFolder)

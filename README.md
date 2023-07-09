@@ -22,8 +22,8 @@ Godot.FSharp contains Myriad based source generators for easier usage of Godot w
 ## Configuration (Myriad.toml)
 ``` toml
 [godot]
-namespace = "MyNamespace" #Namespace for generated nodes and resources. Default is 'UnknownNamespace'
-csOutputFolder = "./" #Folder, relative to project, to put generated C# files
+namespace = "MyNamespace" #Namespace for generated nodes and resources. Default is 'Generated'
+csOutputFolder = "./" #Folder, relative to f# project, to put generated C# files
 ```
 
 ## Examples
