@@ -63,7 +63,10 @@ module MyNode =
         state
         
     let Custom (node : Node) (value : int) (state: State) =        
-        { state with ExportedVariable = value }        
+        { state with ExportedVariable = value }
+        
+    let CustomWithReturn (node: Node) (state: State) =
+        (state, 1)        
 ```
 
 #### Project file (f#)

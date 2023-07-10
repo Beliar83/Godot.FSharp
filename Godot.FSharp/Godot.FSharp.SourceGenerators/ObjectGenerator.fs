@@ -45,11 +45,12 @@ module ObjectGenerator =
 
     type MethodsToGenerate =
         {
-
           IsOverride: bool
           MethodParams: List<MethodParam>
           MethodName: string
-          MethodFlags: MethodFlags }
+          MethodFlags: MethodFlags
+          ReturnParameter : Option<MethodParam>
+          }
 
     type Field =
         { Name: string
@@ -97,13 +98,27 @@ module ObjectGenerator =
             else
                 "member public"
 
+        
         let generateMethod (method: MethodsToGenerate) =
-            $"
-    {generateAccess method.IsOverride} this.{method.MethodName} ({generateInputParams method.MethodParams}) =
-        let currentState = getState ()
-        let newState = {method.MethodName} this {generateParamsToSend method.MethodParams} currentState
-        setState newState
-    "
+            let builder = StringBuilder();
+        
+            builder
+                .AppendLine($"\t{generateAccess method.IsOverride} this.{method.MethodName} ({generateInputParams method.MethodParams}) =")
+                .AppendLine($"\t\tlet currentState = getState ()")
+                |> ignore
+            match method.ReturnParameter with
+            | None ->
+                builder
+                    .AppendLine($"\t\tlet newState = {method.MethodName} this {generateParamsToSend method.MethodParams} currentState")
+                    .AppendLine($"\t\tsetState newState")
+                    |> ignore
+            | Some _ ->
+                builder
+                    .AppendLine($"\t\tlet (newState, returnVal) = {method.MethodName} this {generateParamsToSend method.MethodParams} currentState")
+                    .AppendLine($"\t\tsetState newState")
+                    .AppendLine($"\t\treturnVal")
+                    |> ignore
+            builder.ToString().Replace("\t", "    ")
 
         methods |> mapAndConcat generateMethod
 
@@ -164,11 +179,23 @@ module ObjectGenerator =
                 paramsOfMethod
                 |> Seq.mapi generateParamForCall
                 |> String.concat ","
-
-            let generateInvokeGodotClassMethod (method: MethodsToGenerate) (isFirst) =
+            
+            let generateInvokeGodotClassMethod (method: MethodsToGenerate) (isFirst) =                
                 builder
                     .AppendLine($"\t\t{generateIfPart isFirst} (StringName.op_Equality (\"{method.MethodName}\",&method) && args.Count = {method.MethodParams.Length}) then")
-                    .AppendLine($"\t\t\tthis.{method.MethodName}({generateParamsForCall method.MethodParams})")
+                    |> ignore
+                match method.ReturnParameter with
+                | None ->
+                    builder
+                        .AppendLine($"\t\t\tthis.{method.MethodName}({generateParamsForCall method.MethodParams})")
+                        |> ignore
+                | Some value ->
+                    builder
+                        .AppendLine($"\t\t\tlet returnVal = this.{method.MethodName}({generateParamsForCall method.MethodParams})")
+                        .AppendLine($"\t\t\tret <- Godot.NativeInterop.VariantUtils.CreateFrom<{value.OfTypeName}>(&returnVal)")
+                        |> ignore
+
+                builder
                     .AppendLine($"\t\t\ttrue")
                     |> ignore
             generateInvokeGodotClassMethod methods.Head true
@@ -330,7 +357,7 @@ type {toGenerate.Name}() =
         member _.GetState () = getState ()
         member this.GetNode () = this
 
-    {generateMethods toGenerate.methods}
+{generateMethods toGenerate.methods}
     static member GetGodotMethodList() =
         let methods = ResizeArray<MethodInfo>()
         {generateMethodList toGenerate.methods}
@@ -470,9 +497,19 @@ type {toGenerate.Name}() =
 
                 let stateArgument = stateArgument.TypeDefinition
 
+                let returnParameterType = method.ReturnParameter.Type
                 nodeArgumentTypeDefinition = node
                 && stateArgument = state
-                && method.ReturnParameter.Type.TypeDefinition = state
+                && (
+                    
+                    (
+                        returnParameterType.IsTupleType
+                        && returnParameterType.GenericArguments.Count = 2
+                        && returnParameterType.GenericArguments[0].StripAbbreviations().TypeDefinition = state
+                        )
+                        ||
+                        returnParameterType.TypeDefinition = state
+                    ) 
 
         let isValidReadySignature (method: FSharpMemberOrFunctionOrValue) (state: FSharpEntity) (node: FSharpEntity) =
             isValidNodeMethod method state node (Exact(0))
@@ -488,6 +525,29 @@ type {toGenerate.Name}() =
 
                 let deltaArgumentTypeDefinition = deltaArgument.TypeDefinition
                 deltaArgumentTypeDefinition.FullName = typeof<Double>.FullName
+        
+        let isValidGetPropertyListSignature (method: FSharpMemberOrFunctionOrValue) (state: FSharpEntity) (node: FSharpEntity) =
+            if not
+               <| isValidNodeMethod method state node (Exact(0)) then
+                false
+            elif not <| method.ReturnParameter.Type.IsTupleType then
+                false
+            elif method.ReturnParameter.Type.GenericArguments.Count <> 2 then
+                false
+            elif method.ReturnParameter.Type.GenericArguments[0].StripAbbreviations().TypeDefinition <> state then
+                false
+            else
+                let returnType = method.ReturnParameter.Type.GenericArguments[1].StripAbbreviations()
+                if $"{returnType.TypeDefinition.AccessPath}.{returnType.TypeDefinition.DisplayName}"  <> "Godot.Collections.Array" then
+                    false
+                elif returnType.GenericArguments.Count <> 1 then
+                    false
+                else
+                    let arrayItemItem = returnType.GenericArguments[0].StripAbbreviations()
+                    if $"{arrayItemItem.TypeDefinition.AccessPath}.{arrayItemItem.TypeDefinition.DisplayName}" <> "Godot.Collections.Dictionary" then                        
+                        false
+                    else
+                        returnType.GenericArguments[0].GenericArguments.Count = 0               
 
         let generateInfo (entity: FSharpEntity) (state: FSharpEntity) (node: FSharpType) outputNamespace =
             let outputNamespace = [outputNamespace; GeneratorHelper.getScope entity] |> String.concat "."
@@ -517,7 +577,7 @@ type {toGenerate.Name}() =
                 let checkCustomMethod () =
                     if not
                        <| isValidNodeMethod method state node.TypeDefinition ExtraParamCountCheckMode.ZeroOrMore then
-                        $"{method.DisplayName} has an invalid signature. It should be '{node.TypeDefinition.DisplayName} [...] {state.DisplayName} -> {state.DisplayName}'"
+                        $"{method.DisplayName} has an invalid signature. It should be '{node.TypeDefinition.DisplayName} [...] {state.DisplayName} -> {state.DisplayName}' or '{node.TypeDefinition.DisplayName} [...] {state.DisplayName} -> ({state.DisplayName}, <ReturnType>)'"
                         |> Exception
                         |> raise
 
@@ -532,6 +592,12 @@ type {toGenerate.Name}() =
                         if not
                            <| isValidProcessSignature method state node.TypeDefinition then
                             $"_Process should have the signature '{node.TypeDefinition.DisplayName} double {state.DisplayName} -> {state.DisplayName}'"
+                            |> Exception
+                            |> raise
+                    elif method.DisplayName = "_GetPropertyList" then
+                        if not
+                        <| isValidGetPropertyListSignature method state node.TypeDefinition then
+                            $"_GetPropertyList should have the signature '{node.TypeDefinition.DisplayName} {state.DisplayName} -> ({state.DisplayName}, Godot.Collections.Array<Godot.Collections.Dictionary>>"
                             |> Exception
                             |> raise
                     else
@@ -554,23 +620,45 @@ type {toGenerate.Name}() =
                 Name = entity.DisplayName
                 methods =
                     [ for method in methods do
+                          let returnParameter =
+                              method.ReturnParameter
+                          let returnParameter =
+                              if returnParameter.Type.IsTupleType then
+                                let paramType = returnParameter.Type.GenericArguments[1]
+                                let typeName = GeneratorHelper.getTypeString paramType
+                                let paramType, propertyHint, hintString =
+                                        match getTypeNameFromIdent.convertFSharpTypeToVariantType paramType with
+                                        | None -> (Type.Nil, PropertyHint.None, "")
+                                        | Some value ->
+                                            match value with
+                                            | None -> (Type.Nil, PropertyHint.None, "")
+                                            | Some value -> value
+                                Some({ MethodParam.Name = "Return"
+                                       OfTypeName = typeName
+                                       OfType = paramType
+                                       PropertyHint = propertyHint
+                                       UsageFlags = PropertyUsageFlags.Default
+                                       HintText = hintString
+                                  })
+                              else
+                                  None
                           { MethodName = method.DisplayName
                             IsOverride = isOverride (method)
                             MethodParams =
-                                [
+                                [                                  
                                   // The first and last parameters are internal parameters for fsharp
                                   for param in
                                       method.CurriedParameterGroups
                                       |> Seq.tail
                                       |> Seq.rev
                                       |> Seq.tail
+                                      |> Seq.rev
                                       |> Seq.collect id do
-                                      let typeName =
-                                          match GeneratorHelper.getNamespaceOfType param.Type with
-                                          | None -> param.Type.TypeDefinition.DisplayName
-                                          | Some typeNamespace -> $"{typeNamespace}.{param.Type.TypeDefinition.DisplayName}"
+                                      let paramType = param.Type
+                                      let typeName = GeneratorHelper.getTypeString paramType
+                   
                                       let paramType, propertyHint, hintString =
-                                            match getTypeNameFromIdent.convertFSharpTypeToVariantType param.Type with
+                                            match getTypeNameFromIdent.convertFSharpTypeToVariantType paramType with
                                             | None -> (Type.Nil, PropertyHint.None, "")
                                             | Some value ->
                                                 match value with
@@ -582,23 +670,36 @@ type {toGenerate.Name}() =
                                         PropertyHint = propertyHint
                                         UsageFlags = PropertyUsageFlags.Default
                                         HintText = hintString } ]
-                            MethodFlags = MethodFlags.Default } ]
+                            MethodFlags = MethodFlags.Default
+                            ReturnParameter = returnParameter } ]
 
                 StateToGenerate =
                     { Name = state.DisplayName
                       ExportedFields =
                           [ for field in exportedFields do
-                                let typeName =
-                                    match GeneratorHelper.getNamespaceOfType field.FieldType with
-                                    | None -> field.FieldType.TypeDefinition.DisplayName
-                                    | Some typeNamespace -> $"{typeNamespace}.{field.FieldType.TypeDefinition.DisplayName}"
+                                let typeName = GeneratorHelper.getTypeString (field.FieldType.StripAbbreviations())
                                 let typ, propertyHint, hintString =
                                       match getTypeNameFromIdent.convertFSharpTypeToVariantType field.FieldType with
                                       | None -> (Type.Nil, PropertyHint.None, "")
                                       | Some value ->
                                           match value with
                                           | None -> (Type.Nil, PropertyHint.None, "")
-                                          | Some value -> value                                
+                                          | Some value -> value
+                                let propertyHint, hintString =
+                                    match typ with
+                                    | Type.Array ->
+                                         if field.FieldType.GenericArguments.Count <> 1 then
+                                             (propertyHint, hintString)
+                                         else
+                                             let typ, _, _ =
+                                                  match getTypeNameFromIdent.convertFSharpTypeToVariantType field.FieldType.GenericArguments[0] with
+                                                      | None -> (Type.Nil, PropertyHint.None, "")
+                                                      | Some value ->
+                                                          match value with
+                                                          | None -> (Type.Nil, PropertyHint.None, "")
+                                                          | Some value -> value
+                                             (PropertyHint.TypeString, $"{typ |> int}/0:")
+                                    | _ -> (propertyHint, hintString)
                                 { Name = field.DisplayName
                                   OfTypeName = typeName                            
                                   OfType = typ                                      
@@ -609,10 +710,7 @@ type {toGenerate.Name}() =
                                       ||| PropertyUsageFlags.ScriptVariable } ]
                       InnerFields =
                           [ for field in notExportedFields do
-                                let typeName =
-                                    match GeneratorHelper.getNamespaceOfType field.FieldType with
-                                    | None -> field.FieldType.TypeDefinition.DisplayName
-                                    | Some typeNamespace -> $"{typeNamespace}.{field.FieldType.TypeDefinition.DisplayName}"
+                                let typeName = GeneratorHelper.getTypeString (field.FieldType.StripAbbreviations())
                                 let typ, propertyHint, hintString =
                                       match getTypeNameFromIdent.convertFSharpTypeToVariantType field.FieldType with
                                       | None -> (Type.Nil, PropertyHint.None, "")
@@ -644,6 +742,7 @@ type {toGenerate.Name}() =
             writer.Write
                 $"""using Godot;
 using Godot.Bridge;
+using Godot.NativeInterop;
 
 namespace {outputNamespace};
 
@@ -662,6 +761,18 @@ public partial class {nodeName} : {nodeNamespace}.{nodeName}
 	{{
 		_RestoreGodotObjectData(info);
 	}}
+ 
+    /// <inheritdoc />
+	protected override bool HasGodotClassMethod(in godot_string_name method)
+	{{
+		return _HasGodotClassMethod(method);
+	}}
+
+    protected override bool InvokeGodotClassMethod(in godot_string_name method, NativeVariantPtrArgs args, out godot_variant ret)
+    {{
+        return _InvokeGodotClassMethod(method, args, out ret);
+    }}
+
 }}
 """
 
