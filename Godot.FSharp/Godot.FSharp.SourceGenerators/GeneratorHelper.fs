@@ -174,4 +174,21 @@ module GeneratorHelper =
         | None ->
             match entity.Namespace with
             | Some value -> value
-            | None -> "global"        
+            | None -> "global"
+
+    let rec getTypeString (fsharpType : FSharpType) : string =
+        let typeName =
+            match getNamespaceOfType fsharpType with
+                | None -> fsharpType.TypeDefinition.DisplayName
+                | Some typeNamespace -> $"{typeNamespace}.{fsharpType.TypeDefinition.DisplayName}"
+        if fsharpType.GenericArguments.Count > 0 then
+                let genericType =
+                    [
+                        for param in fsharpType.GenericArguments do
+                        getTypeString (param.StripAbbreviations())
+                    ]
+                    |> String.concat ", "
+              
+                $"{typeName}<{genericType}>"
+            else
+                typeName

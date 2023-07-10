@@ -118,6 +118,9 @@ module getTypeNameFromIdent =
                         //if generic.Assembly.QualifiedName = "GodotSharp" && generic.
                         None)
             else
+                let isGodotArray (entity : FSharpEntity) =
+                    entity.FullName = "Godot.Collections.Array"
+                
                 let rec isGodotObject (entity : FSharpEntity) =
                     if entity.FullName = "Godot.Resource" then (true, PropertyHint.ResourceType)
                     elif entity.FullName = "Godot.Node" then (true, PropertyHint.NodeType)
@@ -127,17 +130,20 @@ module getTypeNameFromIdent =
                         | None -> (false, PropertyHint.None)
                         | Some value -> isGodotObject (value.StripAbbreviations()).TypeDefinition
                 
-                let isObject, propertyHint = isGodotObject typeToConvert
-                
-                let hintString =
-                    match propertyHint with
-                    | PropertyHint.ResourceType -> typeToConvert.DisplayName
-                    | _ -> ""
-                
-                if isObject then
-                    Some (VariantType.Object, propertyHint, hintString) |> Some
-                else                
-                    None
+                if isGodotArray typeToConvert then
+                    Some(VariantType.Array, PropertyHint.None, "") |> Some
+                else
+                    let isObject, propertyHint = isGodotObject typeToConvert
+                    
+                    let hintString =
+                        match propertyHint with
+                        | PropertyHint.ResourceType -> typeToConvert.DisplayName
+                        | _ -> ""
+                    
+                    if isObject then
+                        Some (VariantType.Object, propertyHint, hintString) |> Some
+                    else                
+                        None
             )
 
     let convertFSharpTypeToVariantType (typeToConvert: FSharpType) =
