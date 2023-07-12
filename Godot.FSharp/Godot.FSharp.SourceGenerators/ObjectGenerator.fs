@@ -25,6 +25,9 @@ module ObjectGenerator =
 
     type ExportAttribute() =
         inherit Attribute()
+    
+    type GlobalClassAttribute() =
+        inherit Attribute()
 
     type NodeOrState =
         | Node of SynComponentInfo
@@ -738,6 +741,8 @@ type {toGenerate.Name}() =
 
             let nodeName = node.DisplayNameCore
             Directory.CreateDirectory outputFolder |> ignore
+            
+            let isGlobal = node.Attributes |> Seq.exists (fun x -> x.IsAttribute<GlobalClassAttribute>())
 
             let writer =
                 File.CreateText $"{outputFolder}/{nodeName}.cs"
@@ -750,7 +755,7 @@ using Godot.NativeInterop;
 namespace {outputNamespace};
 
 [DisableGenerators(new[]{{"ScriptSerialization"}})]
-[Tool]
+[Tool]{if isGlobal then "\n[GlobalClass]" else "" }
 public partial class {nodeName} : {nodeNamespace}.{nodeName}
 {{
 	/// <inheritdoc />
