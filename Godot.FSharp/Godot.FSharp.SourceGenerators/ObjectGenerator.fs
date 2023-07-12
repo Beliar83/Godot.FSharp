@@ -69,6 +69,7 @@ module ObjectGenerator =
         { InNamespace: string
           ModuleNameToOpen: string
           Extending: string
+          ExtendingNamespace : string
           Name: string
           StateToGenerate: StateToGenerate
           methods: List<MethodsToGenerate> }
@@ -343,6 +344,7 @@ open Godot.Bridge
 open Godot.NativeInterop
 open {toGenerate.ModuleNameToOpen}
 open Godot.FSharp.SourceGenerators.ObjectGenerator
+open {toGenerate.ExtendingNamespace}
 type {toGenerate.Name}() =
     inherit {toGenerate.Extending}()
     let mutable state: {toGenerate.StateToGenerate.Name} = {toGenerate.StateToGenerate.Name}.Default ()
@@ -373,7 +375,7 @@ type {toGenerate.Name}() =
     override this.GetGodotClassPropertyValue(name : inref<_>, value) =
 {generateGetFields toGenerate.StateToGenerate.ExportedFields}
     static member GetGodotPropertyList() =
-        let properties = ResizeArray()
+        let properties = ResizeArray<PropertyInfo>()
         {generatePropertyList toGenerate.StateToGenerate.ExportedFields true}
         {generatePropertyList toGenerate.StateToGenerate.InnerFields false}
         properties
@@ -617,6 +619,7 @@ type {toGenerate.Name}() =
             [ {
 
                 Extending = node.TypeDefinition.DisplayName
+                ExtendingNamespace = GeneratorHelper.getScope node.TypeDefinition 
                 Name = entity.DisplayName
                 methods =
                     [ for method in methods do
