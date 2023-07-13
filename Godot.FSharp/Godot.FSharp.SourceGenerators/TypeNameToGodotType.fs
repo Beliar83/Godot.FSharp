@@ -36,9 +36,10 @@ module getTypeNameFromIdent =
     //
     //Original code: https://github.com/godotengine/godot/blob/21d080ead4ff09a0796574c920a76e66e8b8a3e4/modules/mono/editor/Godot.NET.Sdk/Godot.SourceGenerators/MarshalUtils.cs#LL86C46-L86C46
 
-    let convertManagedTypeToVariantType (typeToConvert: FSharpEntity) =
-
-        let fullName = typeToConvert.FullName
+    let rec convertFSharpTypeToVariantType (typeToConvert: FSharpType) =
+        let typeToConvert = typeToConvert.StripAbbreviations()
+        let typeDefinition = typeToConvert.TypeDefinition
+        let fullName = typeDefinition.FullName
 
         [
             TypeMatcher(VariantType.Bool, PropertyHint.None, "").Add<bool>()
@@ -60,19 +61,19 @@ module getTypeNameFromIdent =
         ]
         |> tryAndMatch fullName
         |> Option.orElseWith (fun () ->
-            if typeToConvert.IsEnum then
-                (VariantType.Int, PropertyHint.Enum, String.Join (",", typeToConvert.FSharpFields |> Seq.map (fun x -> x.Name)) ) |> Some |> Some
+            if typeDefinition.IsEnum then
+                (VariantType.Int, PropertyHint.Enum, String.Join (",", typeDefinition.FSharpFields |> Seq.map (fun x -> x.Name)) ) |> Some |> Some
             else
                 None)
         |> Option.orElseWith (fun () ->
             if
-                typeToConvert.IsValueType
-                && typeToConvert.Assembly.SimpleName.Contains("GodotSharp")
-                && typeToConvert.Namespace
+                typeDefinition.IsValueType
+                && typeDefinition.Assembly.SimpleName.Contains("GodotSharp")
+                && typeDefinition.Namespace
                    |> Option.map (fun name -> name.Contains("Godot"))
                    |> Option.defaultValue false
             then
-                match typeToConvert.FullName with
+                match typeDefinition.FullName with
                 | "GodotSharp.Godot.Vector2" -> Some (VariantType.Vector2, PropertyHint.None, "")
                 | "GodotSharp.Godot.Vector2I" -> Some (VariantType.Vector2I, PropertyHint.None, "")
                 | "GodotSharp.Godot.Rect2" -> Some (VariantType.Rect2, PropertyHint.None, "")
@@ -98,12 +99,12 @@ module getTypeNameFromIdent =
             else
                 None)
         |> Option.orElseWith (fun () ->
-            if typeToConvert.IsArrayType then
-                if typeToConvert.ArrayRank <> 1 then
+            if typeDefinition.IsArrayType then
+                if typeDefinition.ArrayRank <> 1 then
                     Some None
                 else
                     let generic =
-                        typeToConvert.GenericParameters |> Seq.head
+                        typeDefinition.GenericParameters |> Seq.head
 
                     [
                         TypeMatcher(VariantType.PackedByteArray, PropertyHint.ArrayType, "").Add<byte>()
@@ -118,26 +119,69 @@ module getTypeNameFromIdent =
                         //if generic.Assembly.QualifiedName = "GodotSharp" && generic.
                         None)
             else
-                let isGodotArray (entity : FSharpEntity) =
-                    entity.FullName = "Godot.Collections.Array"
-                
-                let rec isGodotObject (entity : FSharpEntity) =
-                    if entity.FullName = "Godot.Resource" then (true, PropertyHint.ResourceType)
-                    elif entity.FullName = "Godot.Node" then (true, PropertyHint.NodeType)
-                    elif entity.FullName = "Godot.GodotObject" then (true, PropertyHint.None)
+                let rec isGodotArray (typeToCheck : FSharpType) =
+                    let typeToCheck = typeToCheck.StripAbbreviations()
+                    if $"{typeToCheck.TypeDefinition.AccessPath}.{typeToCheck.TypeDefinition.DisplayName}" = "Godot.Collections.Array" then
+                        true
                     else
-                        match entity.BaseType with
-                        | None -> (false, PropertyHint.None)
-                        | Some value -> isGodotObject (value.StripAbbreviations()).TypeDefinition
+                        match typeToCheck.BaseType with
+                        | None -> false
+                        | Some value -> isGodotArray <| value.StripAbbreviations()
+                        
+                let rec isGodotResource (typeToCheck : FSharpType) =
+                    let typeToCheck = typeToCheck.StripAbbreviations()
+                    if $"{typeToCheck.TypeDefinition.AccessPath}.{typeToCheck.TypeDefinition.DisplayName}" = "Godot.Resource" then
+                        true
+                    else
+                        match typeToCheck.BaseType with
+                        | None -> false
+                        | Some value -> isGodotResource <| value.StripAbbreviations()
+                let rec isGodotObject  (typeToCheck : FSharpType) =
+                    let typeToCheck = typeToCheck.StripAbbreviations()
+                    if $"{typeToCheck.TypeDefinition.AccessPath}.{typeToCheck.TypeDefinition.DisplayName}" = "Godot.GodotObject" then
+                        true
+                    else
+                        match typeToCheck.BaseType with
+                        | None -> false
+                        | Some value -> isGodotObject <| value.StripAbbreviations()
+                let rec isGodotNode  (typeToCheck : FSharpType) =
+                    let typeToCheck = typeToCheck.StripAbbreviations()
+                    if $"{typeToCheck.TypeDefinition.AccessPath}.{typeToCheck.TypeDefinition.DisplayName}" = "Godot.Node" then
+                        true
+                    else
+                        match typeToCheck.BaseType with
+                        | None -> false
+                        | Some value -> isGodotNode <| value.StripAbbreviations()
+                    
+                let isGodotType (entity : FSharpType) =
+                    if isGodotResource entity then (true, PropertyHint.ResourceType)
+                    elif isGodotNode entity then (true, PropertyHint.NodeType)
+                    elif isGodotObject entity then (true, PropertyHint.None)
+                    else (false, PropertyHint.None)
                 
                 if isGodotArray typeToConvert then
-                    Some(VariantType.Array, PropertyHint.None, "") |> Some
+                    if typeToConvert.GenericArguments.Count = 1 then
+                        let genericArgument = typeToConvert.GenericArguments[0].StripAbbreviations()
+                        match convertFSharpTypeToVariantType genericArgument with
+                        | None -> Some(VariantType.Array, PropertyHint.None, "") |> Some
+                        | Some value ->
+                            match value with
+                            | None -> Some(VariantType.Array, PropertyHint.None, "") |> Some
+                            | Some (genericType, propertyHint, hintString) ->
+                                 if isGodotNode genericArgument || isGodotResource genericArgument then
+                                     Some(VariantType.Array, PropertyHint.TypeString, $"{genericType |> int}/{propertyHint |> int}:{genericArgument.TypeDefinition.DisplayName}") |> Some
+                                 else
+                                    Some(VariantType.Array, PropertyHint.TypeString, $"{genericType |> int}/0:") |> Some
+                                                            
+
+                    else
+                        Some(VariantType.Array, PropertyHint.None, "") |> Some
                 else
-                    let isObject, propertyHint = isGodotObject typeToConvert
+                    let isObject, propertyHint = isGodotType typeToConvert
                     
                     let hintString =
                         match propertyHint with
-                        | PropertyHint.ResourceType -> typeToConvert.DisplayName
+                        | PropertyHint.ResourceType -> typeDefinition.DisplayName
                         | _ -> ""
                     
                     if isObject then
@@ -145,6 +189,3 @@ module getTypeNameFromIdent =
                     else                
                         None
             )
-
-    let convertFSharpTypeToVariantType (typeToConvert: FSharpType) =
-        convertManagedTypeToVariantType (typeToConvert.StripAbbreviations()).TypeDefinition
