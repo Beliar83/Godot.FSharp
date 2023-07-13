@@ -690,22 +690,7 @@ type {toGenerate.Name}() =
                                       | Some value ->
                                           match value with
                                           | None -> (Type.Nil, PropertyHint.None, "")
-                                          | Some value -> value
-                                let propertyHint, hintString =
-                                    match typ with
-                                    | Type.Array ->
-                                         if field.FieldType.GenericArguments.Count <> 1 then
-                                             (propertyHint, hintString)
-                                         else
-                                             let typ, _, _ =
-                                                  match getTypeNameFromIdent.convertFSharpTypeToVariantType field.FieldType.GenericArguments[0] with
-                                                      | None -> (Type.Nil, PropertyHint.None, "")
-                                                      | Some value ->
-                                                          match value with
-                                                          | None -> (Type.Nil, PropertyHint.None, "")
-                                                          | Some value -> value
-                                             (PropertyHint.TypeString, $"{typ |> int}/0:")
-                                    | _ -> (propertyHint, hintString)
+                                          | Some value -> value  
                                 { Name = field.DisplayName
                                   OfTypeName = typeName                            
                                   OfType = typ                                      
