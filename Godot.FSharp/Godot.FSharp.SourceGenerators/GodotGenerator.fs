@@ -8,7 +8,7 @@ type GodotGenerator() =
     interface IMyriadGenerator with
         member this.Generate(context) =
             let generators: array<IGodotGenerator> = [|ResourceGenerator.Generator(); ObjectGenerator.Generator()|]
-
+            
             let generators =
                 generators
                 |> Array.map (fun x -> (x.GetNumberOfGeneratedTypes context, x))

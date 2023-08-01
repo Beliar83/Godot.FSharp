@@ -4,7 +4,7 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <WarnOn>3390;$(WarnOn)</WarnOn>
         <MyriadSdkVerboseOutput>true</MyriadSdkVerboseOutput>
-        <Version>0.0.4</Version>
+        <Version>0.0.5-beta</Version>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <PackageReadmeFile>README.md</PackageReadmeFile>

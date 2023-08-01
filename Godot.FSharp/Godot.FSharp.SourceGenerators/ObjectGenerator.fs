@@ -336,7 +336,7 @@ module ObjectGenerator =
         fields
         |> mapAndConcat generateSingleGodotPropertyDefaultValue
 
-    let generateClass (toGenerate: ToGenerateInfo) : string =
+    let generateClass (scriptPath: string) (toGenerate: ToGenerateInfo) : string =
         $"
 namespace {toGenerate.InNamespace}
 open Godot
@@ -345,6 +345,9 @@ open Godot.NativeInterop
 open {toGenerate.ModuleNameToOpen}
 open Godot.FSharp.SourceGenerators.ObjectGenerator
 open {toGenerate.ExtendingNamespace}
+
+[<ScriptPath(\"res://{scriptPath}\")>]
+[<Tool>]
 type {toGenerate.Name}() =
     inherit {toGenerate.Extending}()
     let mutable state: {toGenerate.StateToGenerate.Name} = {toGenerate.StateToGenerate.Name}.Default ()
@@ -364,10 +367,10 @@ type {toGenerate.Name}() =
         let methods = ResizeArray<MethodInfo>()
         {generateMethodList toGenerate.methods}
         methods
-    member this._InvokeGodotClassMethod(method : inref<_>, args : NativeVariantPtrArgs, ret : outref<_>) =
+    override this.InvokeGodotClassMethod(method : inref<_>, args : NativeVariantPtrArgs, ret : byref<_>) =
 {generateInvokeGodotClassMethods toGenerate.methods}
 
-    member this._HasGodotClassMethod(method : inref<_>) =
+    override this.HasGodotClassMethod(method : inref<_>) =
 {generateHasGodotClassMethod toGenerate.methods}
 
     override this.SetGodotClassPropertyValue(name : inref<_>, value : inref<_>) =
@@ -380,10 +383,10 @@ type {toGenerate.Name}() =
         {generatePropertyList toGenerate.StateToGenerate.InnerFields false}
         properties
 
-    member this._SaveGodotObjectData(info : inref<_>) =
+    override this.SaveGodotObjectData(info : GodotSerializationInfo) =
         base.SaveGodotObjectData info
         {generateGodotSaveObjectData toGenerate.StateToGenerate.ExportedFields}
-    member this._RestoreGodotObjectData(info : inref<_>) =
+    override this.RestoreGodotObjectData(info : GodotSerializationInfo) =
         base.RestoreGodotObjectData info
         {generateRestoreGodotObjectData toGenerate.StateToGenerate.ExportedFields}
 #if TOOLS
@@ -717,52 +720,21 @@ type {toGenerate.Name}() =
                 InNamespace = $"{outputNamespace}"
                 ModuleNameToOpen = $"{GeneratorHelper.getScope entity}.{entity.DisplayName}" } ]
 
-        let writeCSharpClass (outputNamespace: string) (outputFolder: string) (node: FSharpEntity) =
-
-            let nodeNamespace = [outputNamespace; GeneratorHelper.getScope node] |> String.concat "."
-
-            let nodeName = node.DisplayNameCore
-            Directory.CreateDirectory outputFolder |> ignore
+        let writeCSharpClass (sourceFile : string) (scriptPath : string) (godotProjectFolder : string) =           
+            // Paths are assumed to be relative to godotProjectFolder
+            
+            let scriptPath = Path.GetFullPath(scriptPath, godotProjectFolder)
+            
+            let folder = Path.GetDirectoryName scriptPath
+            
+            Directory.CreateDirectory folder |> ignore
 
             let writer =
-                File.CreateText $"{outputFolder}/{nodeName}.cs"
+                File.CreateText scriptPath
 
             writer.Write
-                $"""using Godot;
-using Godot.Bridge;
-using Godot.NativeInterop;
-
-namespace {outputNamespace};
-
-[DisableGenerators(new[]{{"ScriptSerialization"}})]
-[Tool]
-public partial class {nodeName} : {nodeNamespace}.{nodeName}
-{{
-	/// <inheritdoc />
-	protected override void SaveGodotObjectData(GodotSerializationInfo info)
-	{{
-		_SaveGodotObjectData(info);
-	}}
-
-	/// <inheritdoc />
-	protected override void RestoreGodotObjectData(GodotSerializationInfo info)
-	{{
-		_RestoreGodotObjectData(info);
-	}}
- 
-    /// <inheritdoc />
-	protected override bool HasGodotClassMethod(in godot_string_name method)
-	{{
-		return _HasGodotClassMethod(method);
-	}}
-
-    protected override bool InvokeGodotClassMethod(in godot_string_name method, NativeVariantPtrArgs args, out godot_variant ret)
-    {{
-        return _InvokeGodotClassMethod(method, args, out ret);
-    }}
-
-}}
-"""
+                $"""//This is a generated dummy file for godot to display.
+// Please check res://{sourceFile.Replace("\\", "/")} for the actual code"""
 
             writer.Flush()
             writer.Close()
@@ -770,8 +742,7 @@ public partial class {nodeName} : {nodeNamespace}.{nodeName}
         interface IGodotGenerator with
             member this.Generate(context: GeneratorContext) =
                 let config = context.ConfigGetter "godot"
-
-                let outputFolder =
+                let csOutputFolder =
                     config
                     |> Seq.tryPick
                         (fun (n, v) ->
@@ -779,11 +750,20 @@ public partial class {nodeName} : {nodeNamespace}.{nodeName}
                                 Some(v :?> string)
                             else
                                 None)
-                    |> Option.defaultValue "./"
+                    |> Option.defaultValue "Generated"
 
-                let outputFolder =
-                    $"{Path.GetDirectoryName context.InputFilename}/{outputFolder}"
+                let projectFolder =
+                    config
+                    |> Seq.tryPick
+                        (fun (n, v) ->
+                            if n = "projectFolder" then
+                                Some(v :?> string)
+                            else
+                                None)
+                    |> Option.defaultValue "."
 
+                let projectFolder = Path.GetFullPath projectFolder
+                
                 let outputNamespace =
                     config
                     |> Seq.tryPick
@@ -830,9 +810,11 @@ public partial class {nodeName} : {nodeNamespace}.{nodeName}
                     let toGenerate: List<ToGenerateInfo> =
                         generateInfo entity state node outputNamespace
 
+                    let scriptPath = [csOutputFolder; GeneratorHelper.getScope entity; $"{entity.DisplayName}.cs"] |> String.concat "/"
+
                     let generatedStr =
                         toGenerate
-                        |> Seq.map generateClass
+                        |> Seq.map (generateClass scriptPath)
                         |> String.concat "\n\n"
 
                     if writeDebug then
@@ -845,7 +827,10 @@ public partial class {nodeName} : {nodeNamespace}.{nodeName}
                         logger.Flush()
                         logger.Close()
 
-                    writeCSharpClass outputNamespace outputFolder entity
+                    let sourceFile = Path.GetRelativePath(projectFolder, context.InputFilename)
+                    
+                    
+                    writeCSharpClass sourceFile scriptPath projectFolder
                     Output.Source generatedStr
                 with
                 | x ->
