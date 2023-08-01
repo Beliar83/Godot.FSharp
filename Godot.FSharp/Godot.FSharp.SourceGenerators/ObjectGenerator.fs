@@ -734,7 +734,7 @@ type {toGenerate.Name}() =
 
             writer.Write
                 $"""//This is a generated dummy file for godot to display.
-// Please check res://{sourceFile.Replace("\\", "/")} for the actual code"""
+// Please check {sourceFile.Replace("\\", "/")} for the actual code"""
 
             writer.Flush()
             writer.Close()
@@ -813,7 +813,9 @@ type {toGenerate.Name}() =
                     let scriptPath = [csOutputFolder; GeneratorHelper.getScope entity; $"{entity.DisplayName}.cs"] |> String.concat "/"
                     
                     let godotScriptPath = Path.GetFullPath(scriptPath, projectFolder)
-                    let godotScriptPath = godotScriptPath.Replace(projectFolder, "res://")
+                    let godotScriptPath = godotScriptPath
+                                              .Replace(projectFolder, "res:/") // Single '/' as the script path will already contain one after the project folder
+                                              .Replace("\\", "/") // Godot uses '/' for path separators
                     
                     
                     let generatedStr =
