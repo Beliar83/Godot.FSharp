@@ -1,4 +1,4 @@
-# Godot.FSharp
+(())# Godot.FSharp
 Godot.FSharp contains Myriad based source generators for easier usage of Godot with F#
 
 ## Basic setup

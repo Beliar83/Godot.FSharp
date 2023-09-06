@@ -1,6 +1,6 @@
 <Project>
     <ItemGroup>
-        <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)/../lib/net6.0/Godot.FSharp.SourceGenerators.dll">
+        <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)../lib/net6.0/Godot.FSharp.SourceGenerators.dll">
         </MyriadSdkGenerator>
     </ItemGroup>
 </Project>

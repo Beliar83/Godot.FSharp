@@ -1,6 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <WarnOn>3390;$(WarnOn)</WarnOn>
         <MyriadSdkVerboseOutput>true</MyriadSdkVerboseOutput>
@@ -12,14 +11,15 @@
         <RepositoryType>git</RepositoryType>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <Authors>lenscas, beliar83</Authors>
+        <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
     </PropertyGroup>
     <ItemGroup>
-        <Content Include="build\Godot.FSharp.SourceGenerators.Test.props">
+        <Content Include="build/Godot.FSharp.SourceGenerators.Test.props">
             <Pack>false</Pack>
             <PackagePath>%(Identity)</PackagePath>
             <Visible>true</Visible>
         </Content>
-        <Content Include="build\Godot.FSharp.SourceGenerators.props">
+        <Content Include="build/Godot.FSharp.SourceGenerators.props">
             <Pack>true</Pack>
             <PackagePath>%(Identity)</PackagePath>
             <Visible>true</Visible>
@@ -33,10 +33,10 @@
         <Compile Include="ObjectGenerator.fs" />
         <Compile Include="GodotGenerator.fs" />
         <Compile Include="DisableGeneratorsAttribute.fs" />
-        <None Include="../../README.md" Pack="true" PackagePath="\">
+        <None Include="../../README.md" Pack="true" PackagePath="/">
           <Link>README.md</Link>
         </None>
-        <None Include="../../LICENSE" Pack="true" PackagePath="\">
+        <None Include="../../LICENSE" Pack="true" PackagePath="/">
             <Link>LICENSE</Link>
         </None>        
     </ItemGroup>
@@ -54,8 +54,8 @@
         but before NuGet generates a nuspec. See https://github.com/NuGet/Home/issues/4704.
         -->
         <ItemGroup>
-            <_PackageFiles Include="bin\$(Configuration)\*\FSharp.Compiler.Service.dll;bin\$(Configuration)\*\Ionide.ProjInfo.FCS.dll;bin\$(Configuration)\*\Ionide.ProjInfo.dll;bin\$(Configuration)\*\SemanticVersioning.dll">
-                <PackagePath>lib\%(RecursiveDir)</PackagePath>
+            <_PackageFiles Include="bin/$(Configuration)/*/FSharp.Compiler.Service.dll;bin/$(Configuration)/*/Ionide.ProjInfo.FCS.dll;bin/$(Configuration)/*/Ionide.ProjInfo.dll;bin/$(Configuration)/*/SemanticVersioning.dll">
+                <PackagePath>lib/%(RecursiveDir)</PackagePath>
                 <Visible>false</Visible>
                 <BuildAction>Content</BuildAction>
             </_PackageFiles>

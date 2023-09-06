@@ -346,7 +346,7 @@ open {toGenerate.ModuleNameToOpen}
 open Godot.FSharp.SourceGenerators.ObjectGenerator
 open {toGenerate.ExtendingNamespace}
 
-[<ScriptPath(\"res://{scriptPath}\")>]
+[<ScriptPath(\"{scriptPath}\")>]
 [<Tool>]
 type {toGenerate.Name}() =
     inherit {toGenerate.Extending}()
@@ -811,10 +811,14 @@ type {toGenerate.Name}() =
                         generateInfo entity state node outputNamespace
 
                     let scriptPath = [csOutputFolder; GeneratorHelper.getScope entity; $"{entity.DisplayName}.cs"] |> String.concat "/"
-
+                    
+                    let godotScriptPath = Path.GetFullPath(scriptPath, projectFolder)
+                    let godotScriptPath = godotScriptPath.Replace(projectFolder, "res://")
+                    
+                    
                     let generatedStr =
                         toGenerate
-                        |> Seq.map (generateClass scriptPath)
+                        |> Seq.map (generateClass godotScriptPath)
                         |> String.concat "\n\n"
 
                     if writeDebug then
